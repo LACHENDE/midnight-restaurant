@@ -235,6 +235,9 @@ function kenClip(g){ const t=g.t, N=NIGHTS[C.n-1];
   return {id:'idle', t:clock, loop:true}; }
 function kenFrame(c,t,loop){ const L=c.len*1000; let ms=loop ? ((t*1000)%L+L)%L : Math.min(t*1000,L-1); for(let i=0;i<c.seq.length;i++){ ms-=c.dur[i]; if(ms<0) return c.seq[i]; } return c.seq[c.seq.length-1]; }
 // the face the game paints over each clip
+// the owner's size and position for each clip, set by eye against idle in the Ken face tuner (size × the clip's scale; pos = [x, y] in stage units)
+const KEN_TUNE={ size:{pay:1.07, confirmed:1.06, confused:1.07, leave:.97, hand:.96, excited:1.03, itadaki:1.07, eat:1.06, yum:.96, bye:1.04, wrong:1.03, annoyed:1.17, complain:1.06, furious:1.09, choose:1.18, wait:1.05, bill:.97, spicy:.96, wallet:1.04},
+  pos:{wallet:[1.5,11.5], arrive:[0,9.5], excited:[11,14.5], itadaki:[0,5.5], eat:[4,5], bye:[0,9.5], wrong:[2.5,20.5], complain:[0,9], wait:[-9,9.5], bill:[-10.5,8.5], spicy:[-2.5,4]} };
 const KEN_MOOD={confirmed:'happy', excited:'happy', itadaki:'happy', yum:'happy', bye:'happy', pay:'happy', eat:'eat',
   wrong:'hmm', annoyed:'hmm', complain:'hmm', furious:'hmm', confused:'hmm', spicy:'hmm', wallet:'hmm'};
 
@@ -322,10 +325,13 @@ function drawNoren(g,y0,h,panels){ const w=VW/panels;
   const cx=VW/2+(panels%2?0:w/2)-(panels%2?0:w/2), cy=y0+h*.5; g.strokeStyle='rgba(255,244,226,.9)'; g.lineWidth=3; g.lineCap='round';
   g.beginPath(); g.moveTo(cx-16,cy); g.quadraticCurveTo(cx,cy+18,cx+16,cy); g.closePath(); g.stroke(); for(let k=-1;k<=1;k++){ g.beginPath(); g.moveTo(cx+k*7,cy-6); g.quadraticCurveTo(cx+k*7+4,cy-11,cx+k*7,cy-16); g.stroke(); } }
 // a guest: chunky toy figure, dot eyes, blush; mood '', 'happy', 'eat', 'hmm', 'ask'
-function drawGuest(g,L,x,y,s,mood,o={}){ g.save(); g.translate(x,y); g.scale(s,s); const bob=o.bob||0; g.translate(0,bob);
+// Ken's still picture and clips draw a little bigger than the other guests (the beanie); KEN_SIZE brings him in line
+let KEN_SIZE=1;
+function drawGuest(g,L,x,y,s,mood,o={}){ if(L.id==='ken') s*=KEN_SIZE; g.save(); g.translate(x,y); g.scale(s,s); const bob=o.bob||0; g.translate(0,bob);
   shadow(g,0,6,46,9,.18);
   if(o.clip && L.id==='ken' && KEN.d){ const c=KEN.d.clips[o.clip.id], im=c && KEN.im[c.file];
-    if(im && im.complete && im.naturalWidth){ const f=kenFrame(c,o.clip.t,o.clip.loop), k=KEN_FACE()/KEN.d.facePx, x0=-c.ax*k, y0=22-c.ay*k;
+    if(im && im.complete && im.naturalWidth){ const f=kenFrame(c,o.clip.t,o.clip.loop), k=KEN_FACE()/KEN.d.facePx*(KEN_TUNE.size[o.clip.id]||1), P=KEN_TUNE.pos[o.clip.id]||[0,0],
+      x0=-c.ax*k+P[0], y0=22-c.ay*k+P[1];
       g.drawImage(im,(f%c.cols)*c.fw,Math.floor(f/c.cols)*c.fh,c.fw,c.fh,x0,y0,c.fw*k,c.fh*k);
       const F=c.faces[f]; if(F){ const fw=F[2]*k; g.translate(x0+F[0]*k, y0+F[1]*k+fw*.25); g.rotate(F[3]||0); g.scale(fw/74,fw/74);   // turned with his head's tilt (F[3], from the beanie brim)
       face(g,KEN_MOOD[o.clip.id]||(mood==='happy'?'happy':''),{t:o.t,seed:2}); }
