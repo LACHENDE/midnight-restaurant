@@ -201,6 +201,34 @@ if(document.fonts) document.fonts.load('900 20px "M PLUS Rounded 1c"','たまご
 // the owner's painted art (art/*.webp); until a picture has loaded, the code-drawn version stands in
 const ART={}, artReady=n=>!!(ART[n] && ART[n].complete && ART[n].naturalWidth);
 for(const n of ['kitchen','counter',...Object.keys(LOOKS).map(k=>'guest-'+k)]){ const im=new Image(); im.onload=()=>{ for(const k in LAYER) LAYER[k]=null; }; im.src='art/'+n+'.webp'; ART[n]=im; }
+// Ken's animation clips: the owner's handoff, cut by tests/mr_ken_import.js into art/ken (a 4-column atlas per clip, the frame order and timing
+// of the preview GIFs, a waist anchor, and where his blank face is on each frame). Until they load, Ken is his still picture.
+const KEN={d:null, im:{}};
+fetch('art/ken/ken.json').then(r=>r.json()).then(d=>{ for(const c of Object.values(d.clips)){ c.len=c.dur.reduce((a,b)=>a+b,0)/1000; if(!KEN.im[c.file]){ const im=new Image(); im.src='art/ken/'+c.file; KEN.im[c.file]=im; } } KEN.d=d; }).catch(()=>{});
+const kenOn=g=>!!(g && g.who==='ken' && KEN.d), kenLen=id=>KEN.d.clips[id].len;
+const KSP=1.25;   // the long reactions play a little faster so the stall keeps moving
+const kenEat=()=>({a:kenLen('itadaki')/KSP, e:kenLen('eat')/KSP, y:kenLen('yum')/KSP});
+const kenPay=g=>({b:kenLen('bill')/KSP, w:g.wallet?kenLen('wallet')/KSP:0, p:kenLen('pay')/KSP});
+const kenLeave=g=>(kenLen(g.sad?'furious':'bye')+kenLen('leave'))/KSP;
+const EATING=new Set(['eat','spicy','pay','leave']);   // a guest past ordering
+// the clip Ken plays in each guest state; t = seconds into it
+function kenClip(g){ const t=g.t, N=NIGHTS[C.n-1];
+  if(g.st==='walk') return {id:'arrive', t};
+  if(g.st==='look') return {id:'choose', t};
+  if(g.st==='ask') return {id:g.teach>=1?'hand':'excited', t, loop:true};
+  if(g.st==='order'){ if(g.hover) return {id:'confused', t:clock, loop:true}; if(t<kenLen('confirmed')) return {id:'confirmed', t};
+    if(!g.sent && t>7) return {id:'confused', t:t-7, loop:true};
+    if(!N.gentle && g.pat<.25) return {id:'complain', t, loop:true}; if(!N.gentle && g.pat<.5) return {id:'annoyed', t, loop:true}; return {id:'wait', t, loop:true}; }
+  if(g.st==='refused'){ const w=kenLen('wrong'); return t<w ? {id:'wrong', t} : {id:'annoyed', t:t-w, loop:true}; }
+  if(g.st==='eat'){ const P=kenEat(); return t<P.a ? {id:'itadaki', t:t*KSP} : t<P.a+P.e ? {id:'eat', t:(t-P.a)*KSP, loop:true} : {id:'yum', t:(t-P.a-P.e)*KSP}; }
+  if(g.st==='spicy') return {id:'spicy', t, loop:true};
+  if(g.st==='pay'){ const P=kenPay(g); return t<P.b ? {id:'bill', t:t*KSP} : t<P.b+P.w ? {id:'wallet', t:(t-P.b)*KSP} : {id:'pay', t:(t-P.b-P.w)*KSP}; }
+  if(g.st==='leave'){ const f=g.sad?'furious':'bye', l=kenLen(f)/KSP; return t<l ? {id:f, t:t*KSP} : {id:'leave', t:(t-l)*KSP}; }
+  return {id:'idle', t:clock, loop:true}; }
+function kenFrame(c,t,loop){ const L=c.len*1000; let ms=loop ? ((t*1000)%L+L)%L : Math.min(t*1000,L-1); for(let i=0;i<c.seq.length;i++){ ms-=c.dur[i]; if(ms<0) return c.seq[i]; } return c.seq[c.seq.length-1]; }
+// the face the game paints over each clip
+const KEN_MOOD={confirmed:'happy', excited:'happy', itadaki:'happy', yum:'happy', bye:'happy', pay:'happy', eat:'eat',
+  wrong:'hmm', annoyed:'hmm', complain:'hmm', furious:'hmm', confused:'hmm', spicy:'hmm', wallet:'hmm'};
 
 // ---------- drawing: soft toy shapes ----------
 function rr(g,x,y,w,h,r){ g.beginPath(); g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r); g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath(); }
@@ -281,6 +309,11 @@ function drawNoren(g,y0,h,panels){ const w=VW/panels;
 // a guest: chunky toy figure, dot eyes, blush; mood '', 'happy', 'eat', 'hmm', 'ask'
 function drawGuest(g,L,x,y,s,mood,o={}){ g.save(); g.translate(x,y); g.scale(s,s); const bob=o.bob||0; g.translate(0,bob);
   shadow(g,0,6,46,9,.18);
+  if(o.clip && L.id==='ken' && KEN.d){ const c=KEN.d.clips[o.clip.id], im=c && KEN.im[c.file];
+    if(im && im.complete && im.naturalWidth){ const f=kenFrame(c,o.clip.t,o.clip.loop), k=KEN_FACE()/KEN.d.facePx, x0=-c.ax*k, y0=22-c.ay*k;
+      g.drawImage(im,(f%c.cols)*c.fw,Math.floor(f/c.cols)*c.fh,c.fw,c.fh,x0,y0,c.fw*k,c.fh*k);
+      const F=c.faces[f]; if(F){ const fw=F[2]*k; g.translate(x0+F[0]*k, y0+F[1]*k+fw*.25); g.scale(fw/74,fw/74); face(g,KEN_MOOD[o.clip.id]||(mood==='happy'?'happy':''),{t:o.t,seed:2}); }
+      g.restore(); return; } }
   if(artReady('guest-'+L.id)){ const im=ART['guest-'+L.id], F=FACE[L.id], H=GUEST_H, W=H*im.naturalWidth/im.naturalHeight, top=26-H;
     g.drawImage(im,-W/2,top,W,H);
     const fw=F.w*W; g.translate(-W/2+F.x*W, top+F.t*H+fw*.25); g.scale(fw/74,fw/74); face(g,mood,{t:o.t,seed:L.id.length*.61}); g.restore(); return; }
@@ -294,6 +327,8 @@ function drawGuest(g,L,x,y,s,mood,o={}){ g.save(); g.translate(x,y); g.scale(s,s
   g.translate(0,-106); face(g,mood,{t:o.t,seed:L.id.length*.61});
   g.restore(); }
 const GUEST_H=212;   // a painted guest's height on the stage at scale 1
+// Ken's face width on the stage in his still picture: his clips are scaled to match it
+const KEN_FACE=()=>FACE.ken.w*GUEST_H*(artReady('guest-ken')?ART['guest-ken'].naturalWidth/ART['guest-ken'].naturalHeight:.914);
 // the face, drawn around the point between the eyes (units: a face 74 wide), in the owner's target style:
 // tall solid dark eyes, soft round cheeks, a small smile, and a wide open laugh when happy; blinks every few seconds
 function face(g,mood,o){ const ex=19, blink=((o.t||clock)+(o.seed||0))%3.7<.12, ink='#2A1810';
@@ -468,7 +503,7 @@ function cSeat(gid, si){ const qi=C.queue.findIndex(q=>q.id===gid), s=C.seats[si
 function cTake(si){ const s=C.seats[si], g=s&&s.g; if(!g || g.st!=='ask') return false; g.st='order'; g.t=0; SFX.ding(); noteAct(); toCook({t:'order', cid:g.id, who:g.who}); return true; }
 function cSend(si){ const s=C.seats[si], g=s&&s.g; if(!g || (g.st!=='order' && g.st!=='refused') || g.sent) return false; g.sent=true; SFX.slide(); noteAct(); toCook({t:'ticket', cid:g.id, o:g.o, who:g.who}); return true; }
 function cTea(si,dt){ const s=C.seats[si], g=s&&s.g; if(!g || g.st==='leave' || g.st==='walk') return false; s.cup=Math.min(1.15,s.cup+dt*.7);
-  if(s.cup>=.9 && !g.tea){ g.tea=true; g.pat=Math.min(1.25,g.pat+.25); g.happyT=1.2; SFX.happy(); noteAct(); } return true; }
+  if(s.cup>=.9 && !g.tea){ g.tea=true; g.pat=Math.min(1.25,g.pat+.25); g.happyT=1.2; SFX.happy(); noteAct(); if(g.st==='spicy'){ g.st='eat'; g.t=g.tsave; } } return true; }
 function judge(b,o){ if(!b.noodles) return {ok:false, why:'noodles'}; if(b.noodles==='raw') return {ok:false, why:'raw'}; if(b.broth<.5) return {ok:false, why:'broth'};
   const miss=o.filter(x=>!b.tops.includes(x)), extra=b.tops.filter(x=>!o.includes(x)); if(miss.length||extra.length) return {ok:false, why:'tops', miss, extra};
   return {ok:true, q:(b.noodles==='ready'?1:.6)*(b.broth>=.7 && b.broth<=1.06?1:.8)}; }
@@ -486,18 +521,25 @@ function cWipe(si,amt){ const s=C.seats[si]; if(!s || !s.dirty || s.bowl) return
 function cRecv(m){ if(!C) return; if(m.t==='bowl'){ if(!C.pass.some(b=>b.id===m.bowl.id) && !C.seats.some(s=>s.bowl && s.bowl.id===m.bowl.id)){ C.pass.push(Object.assign({},m.bowl,{at:clock})); SFX.ding(); } } }
 function counterTick(dt){ const N=NIGHTS[C.n-1];
   // guests arrive one at a time on the first night (the next comes when the last one starts eating); later, every so often, never more than two orders open
-  const active=C.seats.filter(s=>s.g && s.g.st!=='eat' && s.g.st!=='leave').length + C.queue.length;
+  const active=C.seats.filter(s=>s.g && !EATING.has(s.g.st)).length + C.queue.length;
   if(C.next<N.guests.length){ C.spawnT-=dt;
-    if(N.seats===1){ const busy=C.queue.length || C.seats.some(s=>s.g && s.g.st!=='eat' && s.g.st!=='leave'); if(!busy && C.spawnT<=0){ spawnGuest(); C.spawnT=2.5; } }
+    if(N.seats===1){ const busy=C.queue.length || C.seats.some(s=>s.g && !EATING.has(s.g.st)); if(!busy && C.spawnT<=0){ spawnGuest(); C.spawnT=2.5; } }
     else if(C.spawnT<=0 && C.queue.length<2 && active<3){ spawnGuest(); C.spawnT=rnd(14,20); } }
   C.queue.forEach((q,i)=>{ q.wait+=dt; const tx=CL.queue[i%3].x; q.x+=(tx-q.x)*Math.min(1,dt*3); if(!N.gentle && q.wait>75){ q.gone=true; } });
   for(const q of C.queue.filter(q=>q.gone)){ C.left++; } C.queue=C.queue.filter(q=>!q.gone);
   for(const s of C.seats){ const g=s.g; if(!g) continue; g.t+=dt; if(g.happyT>0) g.happyT-=dt;
-    if(g.st==='walk' && g.t>.6){ g.st='look'; g.t=0; }
-    else if(g.st==='look' && g.t>1.1){ g.st='ask'; g.t=0; SFX.pop(); }
+    const ken=kenOn(g);
+    if(g.st==='walk' && g.t>(ken?kenLen('arrive'):.6)){ g.st='look'; g.t=0; }
+    else if(g.st==='look' && g.t>(ken?kenLen('choose'):1.1)){ g.st='ask'; g.t=0; SFX.pop(); }
     else if((g.st==='ask'||g.st==='order'||g.st==='refused') && !N.gentle){ g.pat-=dt/85; if(g.pat<=0){ g.st='leave'; g.t=0; g.sad=true; C.left++; if(s.bowl && s.bowl.refused) s.bowl=null; } }
-    if(g.st==='eat'){ s.bowl.eat=Math.min(1,g.t/4.2); if(g.t>4.4){ g.st='leave'; g.t=0; s.coins=g.pay; s.bowl.empty=true; s.bowl.eat=1; C.last=g.who; SFX.happy(); } }
-    if(g.st==='leave' && g.t>1.4){ s.g=null; } }
+    if(g.st==='eat' && ken){ const P=kenEat(); s.bowl.eat=clamp((g.t-P.a)/P.e,0,1);
+      // too spicy: served on a busy night without tea, Ken stops eating until the counter pours him some (or 12 s pass)
+      if(!N.gentle && !g.tea && !g.spiced && g.t>P.a+.8){ g.spiced=true; g.tsave=g.t; g.st='spicy'; g.t=0; SFX.hmm(); }
+      else if(g.t>P.a+P.e+P.y){ s.bowl.empty=true; s.bowl.eat=1; g.st='pay'; g.t=0; g.wallet=!N.gentle && C.next>=N.guests.length; } }
+    else if(g.st==='eat'){ s.bowl.eat=Math.min(1,g.t/4.2); if(g.t>4.4){ g.st='leave'; g.t=0; s.coins=g.pay; s.bowl.empty=true; s.bowl.eat=1; C.last=g.who; SFX.happy(); } }
+    if(g.st==='spicy' && g.t>12){ g.st='eat'; g.t=g.tsave; }
+    if(g.st==='pay'){ const P=kenPay(g); if(g.t>P.b+P.w+P.p){ g.st='leave'; g.t=0; s.coins=g.pay; C.last=g.who; SFX.happy(); } }
+    if(g.st==='leave' && g.t>(ken?kenLeave(g):1.4)){ s.g=null; } }
   // closing time: everyone served (or gone), and the counter clean
   if(!C.done && C.next>=N.guests.length && !C.queue.length && C.seats.every(s=>!seated(s) && !s.bowl && !s.coins && !s.dirty)){ C.done=true; closeNight(); } }
 
@@ -514,7 +556,7 @@ function botCounter(dt){ BC.t-=dt; if(BC.t>0) return; BC.t=rnd(.7,1.2);
     if(g.st==='ask'){ cTake(s.i); return; }
     if(g.st==='order' && !g.sent && g.t>1.2){ cSend(s.i); return; }
     if(s.bowl && s.bowl.refused && g.t>1.2){ cReturn(s.i); return; } }
-  for(const s of C.seats){ const g=s.g; if(g && g.st==='order' && !g.tea && g.t>2.5){ s.cup=.95; cTea(s.i,.01); return; } }
+  for(const s of C.seats){ const g=s.g; if(g && ((g.st==='order' && !g.tea && g.t>2.5) || (g.st==='spicy' && g.t>1.5))){ s.cup=.95; cTea(s.i,.01); return; } }
   for(let p=0;p<C.pass.length;p++){ const b=C.pass[p]; const si=C.seats.findIndex(s=>s.g && s.g.st==='order' && !s.bowl && judge(b,s.g.o).ok); if(si>=0){ cServe(p,si); return; }
     if(clock-b.at>3){ const any=C.seats.findIndex(s=>s.g && s.g.st==='order' && !s.bowl); if(any>=0){ cServe(p,any); return; } } }
   for(const s of C.seats){ if(s.coins){ cCollect(s.i); return; } if(s.bowl && s.bowl.empty){ cClear(s.i); return; } if(s.dirty){ cWipe(s.i,1); return; } } }
@@ -616,14 +658,17 @@ function drawCounter(dt){ const g=ctx; if(!LAYER.cb) LAYER.cb=mkLayer(counterBG)
   const drags=[...PTRS.values()], dk=k=>drags.find(d=>d.kind===k);
   // guests waiting out in the rain, under umbrellas
   C.queue.forEach(q=>{ const dg=dk('guest'); if(dg && dg.id===q.id) return; const bob=Math.sin(clock*2+q.id)*1.2;
-    drawGuest(g,LOOKS[q.who],q.x,286+bob,.5,'',{}); g.fillStyle=['#E36A5A','#6C8BE0','#F2C94C','#7FBF8F'][q.id%4]; g.beginPath(); g.ellipse(q.x,286-(painted()?104:84)+bob,40,16,0,Math.PI,TAU); g.fill(); g.strokeStyle='#3A2A20'; g.lineWidth=2; g.beginPath(); g.moveTo(q.x,286-(painted()?104:84)+bob); g.lineTo(q.x,286-40+bob); g.stroke();
+    drawGuest(g,LOOKS[q.who],q.x,286+bob,.5,'',{clip:{id:'idle', t:clock+q.id, loop:true}}); g.fillStyle=['#E36A5A','#6C8BE0','#F2C94C','#7FBF8F'][q.id%4]; g.beginPath(); g.ellipse(q.x,286-(painted()?104:84)+bob,40,16,0,Math.PI,TAU); g.fill(); g.strokeStyle='#3A2A20'; g.lineWidth=2; g.beginPath(); g.moveTo(q.x,286-(painted()?104:84)+bob); g.lineTo(q.x,286-40+bob); g.stroke();
     const pulse=(clock*1.4)%1; g.strokeStyle=`rgba(94,211,176,${(.9*(1-pulse)).toFixed(2)})`; g.lineWidth=3; el(g,q.x,240,30+pulse*14,42+pulse*14); g.stroke(); });
   // seats: the guests sit behind the counter
   C.seats.forEach(s=>{ const gg=s.g; if(!gg) { if(dk('guest') && freeSeat()===s.i){ g.strokeStyle='rgba(94,211,176,.95)'; g.lineWidth=3; g.setLineDash([8,6]); rr(g,s.x-62,150,124,170,24); g.stroke(); g.setLineDash([]); } return; }
-    let x=s.x, y=318, sc=1, a=1; if(gg.st==='walk'){ const k=Math.min(1,gg.t/.6); x=gg.from+(s.x-gg.from)*k; y=286+(318-286)*k-Math.sin(k*Math.PI)*30; sc=.5+.5*k; }
-    if(gg.st==='leave'){ a=Math.max(0,1-gg.t/1.4); y=318+gg.t*10; }
+    const ken=kenOn(gg); let x=s.x, y=318, sc=1, a=1;
+    if(gg.st==='walk'){ const k=Math.min(1,gg.t/(ken?kenLen('arrive'):.6)); x=gg.from+(s.x-gg.from)*k; y=286+(318-286)*k-(ken?0:Math.sin(k*Math.PI)*30); sc=.5+.5*k; }
+    if(gg.st==='leave' && ken){ const walk=gg.t-kenLen(gg.sad?'furious':'bye')/KSP, end=kenLeave(gg); if(walk>0) x=s.x+walk*170; a=clamp((end-gg.t)/.5,0,1); }
+    else if(gg.st==='leave'){ a=Math.max(0,1-gg.t/1.4); y=318+gg.t*10; }
+    const pd=dk('pbowl'), pb=pd && C.pass.find(b=>b.id===pd.id); gg.hover=!!(pb && gg.st==='order' && Math.abs(pd.x-s.x)<110 && pd.y>150 && !judge(pb,gg.o).ok);
     const mood=gg.st==='eat'?'eat':gg.st==='leave'?(gg.sad?'hmm':'happy'):gg.st==='refused'?'hmm':gg.happyT>0?'happy':gg.st==='ask'?'ask':'';
-    g.globalAlpha=a; drawGuest(g,LOOKS[gg.who],x,y,sc,mood,{t:clock, bob:gg.st==='eat'?Math.sin(clock*8)*1.5:0}); g.globalAlpha=1;
+    g.globalAlpha=a; drawGuest(g,LOOKS[gg.who],x,y,sc,mood,{t:clock, bob:gg.st==='eat'&&!ken?Math.sin(clock*8)*1.5:0, clip:ken?kenClip(gg):null}); g.globalAlpha=1;
     g.fillStyle='rgba(255,244,226,.85)'; g.font='900 12px "M PLUS Rounded 1c"'; g.textAlign=painted()?'right':'left'; if(gg.st!=='walk') g.fillText(LOOKS[gg.who].nm,s.x+(painted()?-84:50),y-(painted()?150:146)); g.textAlign='center';
     if(gg.st==='ask'){ const p=1+Math.sin(clock*6)*.06; g.save(); g.translate(s.x+(painted()?96:58),painted()?140:148); g.scale(p,p); rr(g,-22,-18,44,32,12); g.fillStyle='#FFF4E2'; g.fill(); g.fillStyle='#D8452F'; g.font='900 22px "M PLUS Rounded 1c"'; g.fillText('！',0,7); g.restore(); }
     if(gg.st==='leave' && !gg.sad){ bubble(g,s.x,118,C.last===gg.who && C.next>=NIGHTS[C.n-1].guests.length?'ごちそうさまでした！':'ごちそうさま！'); }
@@ -638,7 +683,8 @@ function drawCounter(dt){ const g=ctx; if(!LAYER.cb) LAYER.cb=mkLayer(counterBG)
     if(s.dirty){ g.globalAlpha=Math.min(1,s.dirty); g.fillStyle='rgba(150,96,40,.55)'; el(g,s.x,390,46,10); g.fill(); el(g,s.x+30,396,14,5); g.fill(); g.globalAlpha=1;
       const ph=(clock*1.2)%1; g.strokeStyle=`rgba(94,211,176,${(.8*(1-ph)).toFixed(2)})`; g.lineWidth=3; g.setLineDash([7,7]); g.lineDashOffset=-ph*28; g.beginPath(); g.moveTo(s.x-64,410); g.lineTo(s.x+64,410); g.stroke(); g.setLineDash([]); }
     const dd=dk('refused'), di=dk('dish');
-    if(s.bowl && !(dd && dd.si===s.i) && !(di && di.si===s.i)){ drawBowl(g,s.x,362,.9,s.bowl,s.bowl.eat||0); if(s.bowl.refused){ g.fillStyle='#D8452F'; rr(g,s.x-40,404,80,18,9); g.fill(); g.fillStyle='#FFF4E2'; g.font='900 10px "M PLUS Rounded 1c"'; g.textAlign='center'; g.fillText(T('send it back','退回厨房'),s.x,417); } }
+    const inHands=kenOn(gg) && gg.st==='eat' && kenClip(gg).id==='eat';   // Ken holds his bowl while he eats
+    if(s.bowl && !inHands && !(dd && dd.si===s.i) && !(di && di.si===s.i)){ drawBowl(g,s.x,362,.9,s.bowl,s.bowl.eat||0); if(s.bowl.refused){ g.fillStyle='#D8452F'; rr(g,s.x-40,404,80,18,9); g.fill(); g.fillStyle='#FFF4E2'; g.font='900 10px "M PLUS Rounded 1c"'; g.textAlign='center'; g.fillText(T('send it back','退回厨房'),s.x,417); } }
     if(s.coins) drawCoins(g,s.x+92,390,s.coins); });
   if(dk('refused') || dk('dish')){ g.strokeStyle='rgba(94,211,176,.95)'; g.lineWidth=3; g.setLineDash([8,6]); if(dk('refused')) rr(g,40,214,214,140,10); else rr(g,CL.tub.x-50,CL.tub.y-24,100,52,12); g.stroke(); g.setLineDash([]); }
   if(!dk('teapot')) drawTeapot(g,CL.teapot.x,CL.teapot.y,0);
@@ -675,6 +721,7 @@ function hintCook(){ const tk=K.tickets.find(t=>!t.done);
   return {t:T('Slide the bowl to the pass','把碗滑到出餐口'), from:{x:s.x,y:s.y+24}, to:KL.pass}; }
 function hintCounter(){ const fs=freeSeat(), seat=C.seats;
   for(const s of seat){ const g=s.g; if(!g) continue;
+    if(g.st==='spicy') return {t:T(`Too spicy! Pour ${LOOKS[g.who].nm} some tea`,`太辣了！给${LOOKS[g.who].nm}倒杯茶`), from:CL.teapot, to:{x:cupX(s),y:CUPY-10}, now:true};   // new to everyone: shown at once
     if(s.bowl && s.bowl.refused) return {t:T('Wrong bowl: drag it back to the kitchen','碗不对：拖回厨房'), from:{x:s.x,y:362}, to:{x:147,y:280}};
     if(g.st==='ask') return {t:T(`${LOOKS[g.who].nm} is ready to order. Tap them`,`${LOOKS[g.who].nm} 要点单了。点一下`), at:{x:s.x+(painted()?96:58),y:painted()?140:148}, tap:true}; }
   for(let j=0;j<C.pass.length;j++){ const b=C.pass[j], s=seat.find(s=>s.g && s.g.st==='order' && !s.bowl); if(s) return {t:T('Serve it: drag the bowl to the guest','上菜：把碗拖给客人'), from:CL.pass[j%2], to:{x:s.x,y:360}}; }
@@ -686,7 +733,7 @@ function hintCounter(){ const fs=freeSeat(), seat=C.seats;
   return null; }
 let HINT=null, hintK='';
 function hintTick(){ if(!NIGHT || NIGHT.ph!=='run'){ HINT=null; } else { const h=meCook()?hintCook():hintCounter(), teach=curTeach(), idle=clock-lastAct;
-    HINT = h && (teach>=2 || (teach===1 && idle>6) || idle>14 || !h.from && !h.at) ? h : null; }
+    HINT = h && (h.now || teach>=2 || (teach===1 && idle>6) || idle>14 || !h.from && !h.at) ? h : null; }
   const el_=$('#hint'), k=HINT?HINT.t:''; if(k!==hintK){ hintK=k; el_.hidden=!HINT; if(HINT){ el_.textContent=HINT.t; el_.classList.remove('pop'); void el_.offsetWidth; el_.classList.add('pop'); SFX.pop(); } } }
 
 // ---------- the DOM bits over the canvas: tickets, order cards, new words ----------
@@ -903,7 +950,8 @@ if(HUB){ MODE='net'; ROLE=HUB.role(); NET_.ch=HUB.open(onNet, setLinkHub); apply
 else { const inv=(location.hash.match(/join=([A-Za-z0-9]{4})/)||[])[1]; if(inv){ history.replaceState(null,'',location.pathname); joinRoom(inv.toUpperCase()); } else lobbyUI(); }
 function setLinkHub(up){ setLink(up); }
 window.__mr={ role:()=>ROLE, mode:()=>MODE, K:()=>K, C:()=>C, N:()=>NIGHT, KL, CL, RD, HINT:()=>HINT, scr:(x,y)=>toS(x,y), link:()=>LINK, seatX:()=>C?C.seats.map(s=>s.x):[],
-  act:{kNest, kLower, kLift, kTop, kUntop, kSlide, kDump, kTakeBack, cSeat, cTake, cSend, cServe, cReturn, cCollect, cClear, cWipe, cTea}, toCounter, toCook, judge, words:()=>MASTER, bank:()=>BANK };
+  act:{kNest, kLower, kLift, kTop, kUntop, kSlide, kDump, kTakeBack, cSeat, cTake, cSend, cServe, cReturn, cCollect, cClear, cWipe, cTea}, toCounter, toCook, judge, words:()=>MASTER, bank:()=>BANK,
+  ken:{ d:()=>KEN.d, clip:g=>kenClip(g), ready:()=>!!KEN.d && Object.values(KEN.im).every(i=>i.complete && i.naturalWidth) } };
 })();
 </script>
 </body>
