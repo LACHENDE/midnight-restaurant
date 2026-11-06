@@ -327,7 +327,8 @@ function drawGuest(g,L,x,y,s,mood,o={}){ g.save(); g.translate(x,y); g.scale(s,s
   if(o.clip && L.id==='ken' && KEN.d){ const c=KEN.d.clips[o.clip.id], im=c && KEN.im[c.file];
     if(im && im.complete && im.naturalWidth){ const f=kenFrame(c,o.clip.t,o.clip.loop), k=KEN_FACE()/KEN.d.facePx, x0=-c.ax*k, y0=22-c.ay*k;
       g.drawImage(im,(f%c.cols)*c.fw,Math.floor(f/c.cols)*c.fh,c.fw,c.fh,x0,y0,c.fw*k,c.fh*k);
-      const F=c.faces[f]; if(F){ const fw=F[2]*k; g.translate(x0+F[0]*k, y0+F[1]*k+fw*.25); g.scale(fw/74,fw/74); face(g,KEN_MOOD[o.clip.id]||(mood==='happy'?'happy':''),{t:o.t,seed:2}); }
+      const F=c.faces[f]; if(F){ const fw=F[2]*k; g.translate(x0+F[0]*k, y0+F[1]*k+fw*.25); g.rotate(F[3]||0); g.scale(fw/74,fw/74);   // turned with his head's tilt (F[3], from the beanie brim)
+      face(g,KEN_MOOD[o.clip.id]||(mood==='happy'?'happy':''),{t:o.t,seed:2}); }
       g.restore(); return; } }
   if(artReady('guest-'+L.id)){ const ask=mood==='ask' && artReady('ask-'+L.id), im=ART[(ask?'ask-':'guest-')+L.id], F=(ask?FACE_ASK:FACE)[L.id], H=GUEST_H, W=H*im.naturalWidth/im.naturalHeight, top=26-H;
     g.drawImage(im,-W/2,top,W,H);
