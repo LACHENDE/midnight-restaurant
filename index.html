@@ -151,7 +151,7 @@ const LOOKS={ haru:{nm:'ハル', skin:'#F6CBA4', hair:'#4A2A1C', style:'pony', c
 for(const k in LOOKS) LOOKS[k].id=k;
 // where each painted guest's blank face sits, as fractions of the picture: x = centre, t = top (under the bangs), w = width.
 // Measured by tests/mr_art_import.js; the game draws the dot eyes there.
-const FACE={ haru:{x:.464,t:.459,w:.339}, ken:{x:.486,t:.414,w:.399}, mika:{x:.485,t:.369,w:.375}, sora:{x:.487,t:.395,w:.404}, yuki:{x:.484,t:.344,w:.374} };
+const FACE={ haru:{x:.47,t:.452,w:.37}, ken:{x:.486,t:.414,w:.399}, mika:{x:.485,t:.369,w:.375}, sora:{x:.487,t:.395,w:.404}, yuki:{x:.484,t:.344,w:.374} };
 // teach 2: every step is shown; 1: a hint after a few idle seconds; 0: only if you are stuck for a while
 const NIGHTS=[
   {n:1, name:['First night','第一晚'], seats:1, gentle:true, words:['tamago'], guests:[{who:'haru',o:['tamago'],teach:2},{who:'ken',o:['tamago'],teach:1},{who:'mika',o:['negi'],teach:1,nw:'negi'}]},
@@ -283,7 +283,7 @@ function drawGuest(g,L,x,y,s,mood,o={}){ g.save(); g.translate(x,y); g.scale(s,s
   shadow(g,0,6,46,9,.18);
   if(artReady('guest-'+L.id)){ const im=ART['guest-'+L.id], F=FACE[L.id], H=GUEST_H, W=H*im.naturalWidth/im.naturalHeight, top=26-H;
     g.drawImage(im,-W/2,top,W,H);
-    const fw=F.w*W; g.translate(-W/2+F.x*W, top+F.t*H+fw*.32); g.scale(fw/74,fw/74); face(g,mood,{t:o.t,seed:L.id.length*.61}); g.restore(); return; }
+    const fw=F.w*W; g.translate(-W/2+F.x*W, top+F.t*H+fw*.25); g.scale(fw/74,fw/74); face(g,mood,{t:o.t,seed:L.id.length*.61}); g.restore(); return; }
   // body and arms
   g.fillStyle=lg(g,0,-70,0,10,[[0,L.coat],[1,shade(L.coat,-.25)]]); rr(g,-42,-70,84,90,26); g.fill();
   g.fillStyle='rgba(255,255,255,.12)'; rr(g,-34,-64,20,60,10); g.fill();
@@ -294,18 +294,22 @@ function drawGuest(g,L,x,y,s,mood,o={}){ g.save(); g.translate(x,y); g.scale(s,s
   g.translate(0,-106); face(g,mood,{t:o.t,seed:L.id.length*.61});
   g.restore(); }
 const GUEST_H=212;   // a painted guest's height on the stage at scale 1
-// the dot-eye face, drawn around the point between the eyes; blinks every few seconds
-function face(g,mood,o){ const ex=13, blink=((o.t||clock)+ (o.seed||0))%3.7<.12;
-  g.fillStyle='rgba(240,120,110,.35)'; el(g,-24,10,8,5); g.fill(); el(g,24,10,8,5); g.fill();
-  g.strokeStyle='#2A1A12'; g.lineWidth=3.2; g.lineCap='round';
-  if(mood==='happy' || mood==='eat'){ g.beginPath(); g.arc(-ex,2,5,Math.PI*1.1,Math.PI*1.9); g.stroke(); g.beginPath(); g.arc(ex,2,5,Math.PI*1.1,Math.PI*1.9); g.stroke(); }
-  else if(blink){ g.beginPath(); g.moveTo(-ex-4.5,0); g.lineTo(-ex+4.5,0); g.moveTo(ex-4.5,0); g.lineTo(ex+4.5,0); g.stroke(); }
-  else { g.fillStyle='#22160F'; el(g,-ex,0,4.6,5.4); g.fill(); el(g,ex,0,4.6,5.4); g.fill(); g.fillStyle='#fff'; el(g,-ex+1.6,-2,1.5,1.5); g.fill(); el(g,ex+1.6,-2,1.5,1.5); g.fill(); }
-  g.strokeStyle='#5A2A1A'; g.lineWidth=2.6; g.beginPath();
-  if(mood==='happy'){ g.fillStyle='#8E2E22'; g.moveTo(-8,14); g.quadraticCurveTo(0,26,8,14); g.closePath(); g.fill(); }
-  else if(mood==='eat'){ const k=Math.sin((o.t||0)*14)*2; el(g,0,16,4,2.5+Math.abs(k)); g.fillStyle='#8E2E22'; g.fill(); }
-  else if(mood==='hmm'){ g.moveTo(-6,17); g.quadraticCurveTo(0,13,6,17); g.stroke(); g.beginPath(); g.moveTo(-18,-15); g.lineTo(-8,-12); g.moveTo(18,-15); g.lineTo(8,-12); g.stroke(); }
-  else { g.moveTo(-5,15); g.quadraticCurveTo(0,19,5,15); g.stroke(); } }
+// the face, drawn around the point between the eyes (units: a face 74 wide), in the owner's target style:
+// tall glossy eyes with a big shine, soft round cheeks, a small smile, and a wide open laugh when happy; blinks every few seconds
+function face(g,mood,o){ const ex=19, blink=((o.t||clock)+(o.seed||0))%3.7<.12, ink='#2A1810';
+  for(const sx of [-1,1]){ g.fillStyle=rg(g,sx*30,13,0,12,[[0,'rgba(255,120,120,.55)'],[1,'rgba(255,120,120,0)']]); el(g,sx*30,13,12,8); g.fill(); }
+  g.lineCap='round'; g.lineJoin='round'; g.strokeStyle=ink;
+  if(mood==='happy' || mood==='eat'){ g.lineWidth=3.6; for(const sx of [-1,1]){ g.beginPath(); g.arc(sx*ex,3,6.5,Math.PI*1.12,Math.PI*1.88); g.stroke(); } }
+  else if(blink){ g.lineWidth=3.2; for(const sx of [-1,1]){ g.beginPath(); g.moveTo(sx*ex-5,1); g.quadraticCurveTo(sx*ex,4,sx*ex+5,1); g.stroke(); } }
+  else for(const sx of [-1,1]){ const x=sx*ex; g.fillStyle=ink; el(g,x,0,6.2,8.4); g.fill();
+    g.fillStyle='#fff'; el(g,x+2.1,-3.1,2.5,2.8); g.fill(); el(g,x-1.6,2.6,1,1); g.fill(); }
+  if(mood==='hmm'){ g.lineWidth=2.6; g.beginPath(); g.moveTo(-23,-14); g.lineTo(-12,-11); g.moveTo(23,-14); g.lineTo(12,-11); g.stroke(); }
+  // the mouth
+  if(mood==='happy'){ g.beginPath(); g.moveTo(-9,13); g.quadraticCurveTo(0,14.5,9,13); g.quadraticCurveTo(8,26,0,26); g.quadraticCurveTo(-8,26,-9,13); g.closePath();
+    g.fillStyle='#7A2418'; g.fill(); g.save(); g.clip(); g.fillStyle='#F07C7C'; el(g,0,25,6,4.5); g.fill(); g.restore(); g.lineWidth=1.6; g.stroke(); }
+  else if(mood==='eat'){ const k=Math.abs(Math.sin((o.t||0)*14))*3; el(g,0,17,4.5,2.6+k); g.fillStyle='#7A2418'; g.fill(); }
+  else if(mood==='hmm'){ g.lineWidth=2.4; g.beginPath(); g.moveTo(-6,18); g.quadraticCurveTo(-2,15,0,17); g.quadraticCurveTo(2,19,6,16); g.stroke(); }
+  else { g.lineWidth=2.4; g.beginPath(); g.moveTo(-5,15); g.quadraticCurveTo(-2.5,18.5,0,15.5); g.quadraticCurveTo(2.5,18.5,5,15); g.stroke(); } }
 function hair(g,L){ g.fillStyle=L.hair; const dark=shade(L.hair,-.3);
   if(L.style==='cap'){ g.fillStyle='#3E4A78'; g.beginPath(); g.ellipse(0,-130,44,30,0,Math.PI,TAU); g.fill(); g.fillStyle='#2E3860'; rr(g,-46,-134,92,10,5); g.fill(); g.fillStyle='#4E5A8A'; el(g,0,-158,6,4); g.fill(); g.fillStyle=L.hair; g.beginPath(); g.moveTo(-40,-124); g.lineTo(-30,-112); g.lineTo(-24,-124); g.lineTo(-14,-114); g.lineTo(-8,-124); g.closePath(); g.fill(); return; }
   // faceted hair: a cap of flat polygons in two tones (the toy look)
