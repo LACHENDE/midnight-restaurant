@@ -27,6 +27,11 @@ button,input{touch-action:manipulation;font-family:inherit}
 #role{left:max(10px,var(--sl));top:calc(var(--st) + 8px)}
 #yen{right:max(10px,var(--sr));top:calc(var(--st) + 8px)}
 #yen b{font-weight:900;font-size:15px}
+#say{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(var(--sb) + 30px);display:flex;gap:5px;align-items:stretch;pointer-events:auto;max-width:calc(100vw - 16px);flex-wrap:nowrap;justify-content:center}
+#say button{font:900 14px var(--ui);background:var(--cream);color:var(--ink);border:0;border-radius:11px;padding:4px 9px;white-space:nowrap;box-shadow:0 3px 12px rgba(10,5,2,.45);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.15;min-height:38px}
+#say button small{font:800 9px var(--ui);color:var(--dim);letter-spacing:0;white-space:nowrap}
+#say .mic{background:var(--mint);color:#0E3B2E;font-size:20px;min-width:46px}
+#say .mic.on{background:#FF8A5B;animation:rot 0s}
 #prog{left:50%;transform:translateX(-50%);bottom:calc(var(--sb) + 6px);font-size:11px;padding:4px 12px;opacity:.92}
 #prog i{display:inline-block;width:9px;height:9px;border-radius:50%;background:rgba(59,38,24,.18);margin:0 2px;vertical-align:-1px}
 #prog i.on{background:var(--mint)} #prog i.now{background:#FFB23E}
@@ -120,6 +125,7 @@ input.codein{font:900 20px var(--ui);letter-spacing:.2em;text-transform:uppercas
   <div class="chip" id="prog"></div>
   <div class="tix" id="tix"></div>
   <div id="cards"></div>
+  <div id="say" hidden></div>
   <div id="nw"></div>
 </div>
 <div class="ui" id="ui"><div class="panel" id="panel"></div></div>
@@ -162,7 +168,13 @@ const FACE={ haru:{x:.47,t:.452,w:.37}, ken:{x:.486,t:.414,w:.399}, mika:{x:.485
 // teach 2: every step is shown; 1: a hint after a few idle seconds; 0: only if you are stuck for a while
 const NIGHTS=[
   {n:1, name:['First night','第一晚'], seats:1, gentle:true, words:['tamago'], guests:[{who:'haru',o:['tamago'],teach:2},{who:'ken',o:['tamago'],teach:1},{who:'mika',o:['negi'],teach:1,nw:'negi'}]},
-  {n:2, name:['A busier night','更忙的一晚'], seats:2, gentle:false, words:['tamago','negi'], guests:[{who:'ken',o:['tamago','negi'],teach:0},{who:'sora',o:['naruto'],teach:1,nw:'naruto'},{who:'haru',o:['tamago'],teach:0},{who:'mika',o:['negi','naruto'],teach:0},{who:'yuki',o:['tamago','naruto'],teach:0},{who:'ken',o:['negi'],teach:0}]}];
+  {n:2, name:['A busier night','更忙的一晚'], seats:2, gentle:false, words:['tamago','negi'], guests:[{who:'ken',o:['tamago','negi'],teach:0},{who:'sora',o:['naruto'],teach:1,nw:'naruto'},{who:'haru',o:['tamago'],teach:0},{who:'mika',o:['negi','naruto'],teach:0},{who:'yuki',o:['tamago','naruto'],teach:0},{who:'ken',o:['negi'],teach:0}]},
+  // 接客 at the door: groups come in, and the counter greets them, asks how many, shows them in (or asks them to wait), and sees them off
+  {n:3, name:['At the door · 接客','门口接客'], seats:3, gentle:true, door:true, words:['tamago','negi','naruto'], guests:[
+    {who:'haru',o:['tamago'],teach:2,grp:1},
+    {who:'ken',o:['negi'],teach:1,grp:2},{who:'mika',o:['tamago'],teach:1,grp:2},
+    {who:'sora',o:['naruto'],teach:0,grp:3},
+    {who:'yuki',o:['tamago','negi'],teach:0,grp:4},{who:'haru',o:['naruto'],teach:0,grp:4},{who:'mika',o:['negi'],teach:0,grp:4}]}];
 // a word's romaji and meaning step back once you have served it right three times
 let MASTER=store.get('mastery',{}); const known=w=>(MASTER[w]||0)>=3;
 let BANK=store.get('bank',0);
@@ -465,7 +477,7 @@ function counterBits(g){ // the dish tub, the teapot's mat, the hydrangeas: on e
 const KL={ box:{x:96,y:384}, hook:{x:84,y:265}, pot:{x:324,y:300}, broth:{x:572,y:262}, ladle:{x:604,y:242},
   slots:[{x:534,y:334},{x:694,y:334}], trays:{tamago:{x:236,y:408}, negi:{x:376,y:408}, naruto:{x:516,y:408}}, scrap:{x:752,y:418}, pass:{x:908,y:350}, dial:{x:324,y:186} };
 const CL={ pass:[{x:96,y:322},{x:196,y:322}], tub:{x:930,y:432}, teapot:{x:900,y:376}, cloth:{x:810,y:438}, queue:[{x:880,y:292},{x:950,y:300},{x:820,y:302}] };
-const seatX=n=>n===1?[560]:[470,700];
+const seatX=n=>n===1?[560]:n===3?[330,560,790]:[470,700];
 
 // ---------- the night: state ----------
 // MODE 'bot' | 'net'; ROLE 'cook' | 'counter'. The counter's phone runs the guests and the night; the cook's phone runs the kitchen.
@@ -478,7 +490,7 @@ let BID=0, CID=0;
 const newBowl=()=>({id:++BID, noodles:null, broth:0, tops:[], pop:1});
 const isEmpty=b=>!b.noodles && b.broth<.02 && !b.tops.length;
 function kReset(){ K={ basket:{st:'hook', t:0, done:'raw'}, slots:[newBowl(), newBowl()], refill:[0,0], tickets:[], back:[], slid:[], ladleHeld:false, trays:{}, shown:{} }; }
-function cReset(n){ const N=NIGHTS[n-1], xs=seatX(N.seats); C={ n, queue:[], seats:xs.map((x,i)=>({i, x, g:null, bowl:null, coins:0, dirty:0, cup:0})), pass:[], next:0, spawnT:1.6, served:0, left:0, earned:0, words:{}, quality:0, done:false, last:null }; }
+function cReset(n){ const N=NIGHTS[n-1], xs=seatX(N.seats); C={ n, queue:[], seats:xs.map((x,i)=>({i, x, g:null, bowl:null, coins:0, dirty:0, cup:0})), pass:[], next:0, spawnT:1.6, served:0, left:0, earned:0, words:{}, quality:0, done:false, last:null, door:null, bye:[], leftG:{}, sk:{ok:0, bad:0} }; }
 function trayOpen(w){ if(!NIGHT) return false; const N=NIGHTS[NIGHT.n-1]; return N.words.includes(w) || (K && K.trays[w]); }
 
 // ---------- one message to the other station: on this phone (しばBot) or across the link ----------
@@ -515,12 +527,15 @@ function kTakeBack(j,i){ const r=K.back[j]; if(!r || (K.slots[i] && !isEmpty(K.s
 
 // ---------- the counter: guests, orders, tea, serving, clearing ----------
 const NOW_GUEST=()=>NIGHTS[C.n-1].guests;
-function spawnGuest(){ const N=NIGHTS[C.n-1]; if(C.next>=N.guests.length) return; const spec=N.guests[C.next++], id=++CID;
-  C.queue.push({id, who:spec.who, o:spec.o.slice(), teach:spec.teach, nw:spec.nw||null, wait:0, x:CL.queue[C.queue.length%3].x+60, idx:C.next}); SFX.bell(); }
+function spawnGuest(){ const N=NIGHTS[C.n-1]; if(C.next>=N.guests.length) return; const grp=N.guests[C.next].grp, gsz=N.guests.filter(x=>grp && x.grp===grp).length||1;
+  do{ const spec=N.guests[C.next++], id=++CID;   // on a door night the whole group arrives together
+    C.queue.push({id, who:spec.who, o:spec.o.slice(), teach:spec.teach, nw:spec.nw||null, wait:0, x:CL.queue[C.queue.length%3].x+60, idx:C.next, grp, gsz}); }
+  while(N.door && C.next<N.guests.length && N.guests[C.next].grp===grp);
+  SFX.bell(); }
 const seated=s=>!!s.g && s.g.st!=='leave';
 const freeSeat=()=>C.seats.findIndex(s=>!seated(s) && !s.bowl && !s.coins && !s.dirty);
 function cSeat(gid, si){ const qi=C.queue.findIndex(q=>q.id===gid), s=C.seats[si]; if(qi<0 || !s || seated(s) || s.bowl || s.coins || s.dirty) return false;
-  if(seated(s)) return false; const q=C.queue.splice(qi,1)[0]; s.g={id:q.id, who:q.who, o:q.o, teach:q.teach, nw:q.nw, st:'walk', t:0, pat:1, tea:false, sent:false, idx:q.idx, from:q.x}; s.cup=0;
+  if(seated(s)) return false; const q=C.queue.splice(qi,1)[0]; s.g={id:q.id, who:q.who, o:q.o, teach:q.teach, nw:q.nw, st:'walk', t:0, pat:1, tea:false, sent:false, idx:q.idx, from:q.x, grp:q.grp, gsz:q.gsz}; s.cup=0;
   SFX.pop(); noteAct(); toCook({t:'guest', cid:q.id, teach:q.teach, who:q.who, nw:q.nw}); if(q.nw) newWord(q.nw); return true; }
 function cTake(si){ const s=C.seats[si], g=s&&s.g; if(!g || g.st!=='ask') return false; g.st='order'; g.t=0; SFX.ding(); noteAct(); toCook({t:'order', cid:g.id, who:g.who}); return true; }
 function cSend(si){ const s=C.seats[si], g=s&&s.g; if(!g || (g.st!=='order' && g.st!=='refused') || g.sent) return false; g.sent=true; SFX.slide(); noteAct(); toCook({t:'ticket', cid:g.id, o:g.o, who:g.who}); return true; }
@@ -545,8 +560,10 @@ function counterTick(dt){ const N=NIGHTS[C.n-1];
   // guests arrive one at a time on the first night (the next comes when the last one starts eating); later, every so often, never more than two orders open
   const active=C.seats.filter(s=>s.g && !EATING.has(s.g.st)).length + C.queue.length;
   if(C.next<N.guests.length){ C.spawnT-=dt;
-    if(N.seats===1){ const busy=C.queue.length || C.seats.some(s=>s.g && !EATING.has(s.g.st)); if(!busy && C.spawnT<=0){ spawnGuest(); C.spawnT=2.5; } }
+    if(N.door){ if(!C.queue.length && !C.door && C.spawnT<=0){ spawnGuest(); C.spawnT=rnd(7,11); } }
+    else if(N.seats===1){ const busy=C.queue.length || C.seats.some(s=>s.g && !EATING.has(s.g.st)); if(!busy && C.spawnT<=0){ spawnGuest(); C.spawnT=2.5; } }
     else if(C.spawnT<=0 && C.queue.length<2 && active<3){ spawnGuest(); C.spawnT=rnd(14,20); } }
+  doorTick(dt);
   C.queue.forEach((q,i)=>{ q.wait+=dt; const tx=CL.queue[i%3].x; q.x+=(tx-q.x)*Math.min(1,dt*3); if(!N.gentle && q.wait>75){ q.gone=true; } });
   for(const q of C.queue.filter(q=>q.gone)){ C.left++; } C.queue=C.queue.filter(q=>!q.gone);
   for(const s of C.seats){ const g=s.g; if(!g) continue; g.t+=dt; if(g.happyT>0) g.happyT-=dt;
@@ -558,12 +575,72 @@ function counterTick(dt){ const N=NIGHTS[C.n-1];
       // too spicy: served on a busy night without tea, Ken stops eating until the counter pours him some (or 12 s pass)
       if(!N.gentle && !g.tea && !g.spiced && g.t>P.a+.8){ g.spiced=true; g.tsave=g.t; g.st='spicy'; g.t=0; SFX.hmm(); }
       else if(g.t>P.a+P.e+P.y){ s.bowl.empty=true; s.bowl.eat=1; g.st='pay'; g.t=0; g.wallet=!N.gentle && C.next>=N.guests.length; } }
-    else if(g.st==='eat'){ s.bowl.eat=Math.min(1,g.t/4.2); if(g.t>4.4){ g.st='leave'; g.t=0; s.coins=g.pay; s.bowl.empty=true; s.bowl.eat=1; C.last=g.who; SFX.happy(); } }
+    else if(g.st==='eat'){ s.bowl.eat=Math.min(1,g.t/4.2); if(g.t>4.4){ g.st='leave'; g.t=0; s.coins=g.pay; s.bowl.empty=true; s.bowl.eat=1; C.last=g.who; SFX.happy(); groupOut(g,s); } }
     if(g.st==='spicy' && g.t>12){ g.st='eat'; g.t=g.tsave; }
-    if(g.st==='pay'){ const P=kenPay(g); if(g.t>P.b+P.w+P.p){ g.st='leave'; g.t=0; s.coins=g.pay; C.last=g.who; SFX.happy(); } }
+    if(g.st==='pay'){ const P=kenPay(g); if(g.t>P.b+P.w+P.p){ g.st='leave'; g.t=0; s.coins=g.pay; C.last=g.who; SFX.happy(); groupOut(g,s); } }
     if(g.st==='leave' && g.t>(ken?kenLeave(g):1.4)){ s.g=null; } }
   // closing time: everyone served (or gone), and the counter clean
   if(!C.done && C.next>=N.guests.length && !C.queue.length && C.seats.every(s=>!seated(s) && !s.bowl && !s.coins && !s.dirty)){ C.done=true; closeNight(); } }
+
+// ---------- 接客 at the door: say the right line at the right moment ----------
+// the lines (kana or kanji as staff write them, the reading for kanji, romaji, meaning) and what the microphone may hear for each
+const PHRASES={
+  irasshai:{k:'いらっしゃいませ', ro:'irasshaimase', m:['Welcome!','欢迎光临！'], say:['いらっしゃいませ','いらっしゃい']},
+  nanmei:{k:'何名様ですか', r:'なんめいさまですか', ro:'nanmei-sama desu ka', m:['How many are you?','请问几位？'], say:['なんめいさまですか','何名様ですか','何名さまですか','何名様','なんめいさま','何名ですか','なんめい']},
+  douzo:{k:'こちらへどうぞ', ro:'kochira e dōzo', m:['This way, please.','这边请。'], say:['こちらへどうぞ','こちらにどうぞ','こちらへ','どうぞ']},
+  shoushou:{k:'少々お待ちください', r:'しょうしょうおまちください', ro:'shōshō omachi kudasai', m:['One moment, please.','请稍等。'], say:['しょうしょうおまちください','少々お待ちください','少々お待ち下さい','おまちください','お待ちください','お待ち下さい']},
+  arigatou:{k:'ありがとうございました', ro:'arigatō gozaimashita', m:['Thank you very much!','谢谢光临！'], say:['ありがとうございました','ありがとうございます','ありがとう']} };
+const PH_ORDER=['irasshai','nanmei','douzo','shoushou','arigatou'];
+const COUNT=['','ひとりです','ふたりです','さんにんです','よにんです'];
+let PMASTER=store.get('phrases',{}); const pknown=ph=>(PMASTER[ph]||0)>=3;
+const doorGroup=()=>C && C.door ? C.queue.filter(q=>q.grp===C.door.grp) : [];
+const freeSeats=()=>C.seats.filter(s=>!seated(s) && !s.bowl && !s.coins && !s.dirty).map(s=>s.i);
+function doorTick(dt){ if(!NIGHTS[C.n-1].door) return;
+  if(!C.door && C.queue.length) C.door={grp:C.queue[0].grp, step:'greet', t:0, conf:0, happy:0, ans:''};
+  const D=C.door; if(D){ D.t+=dt; D.conf=Math.max(0,D.conf-dt); D.happy=Math.max(0,D.happy-dt); }
+  for(const b of C.bye) b.t+=dt; C.bye=C.bye.filter(b=>b.t<7); }
+// the line the moment needs (null: nothing to say yet)
+function doorWant(){ const D=C && C.door; if(!D) return null; if(D.step==='greet') return 'irasshai'; if(D.step==='count') return 'nanmei';
+  const fit=freeSeats().length>=doorGroup().length; if(D.step==='seat') return fit?'douzo':'shoushou'; if(D.step==='wait') return fit?'douzo':null; return null; }
+// a group that has all gone out happy gets its goodbye moment
+function groupOut(g,s){ if(!g.grp || !NIGHTS[C.n-1].door) return; C.leftG[g.grp]=(C.leftG[g.grp]||0)+1; if(C.leftG[g.grp]>=(g.gsz||1)) C.bye.push({grp:g.grp, n:g.gsz||1, x:s.x, t:0}); }
+// the counter says a line (tapped now; spoken into the microphone later)
+function cSay(ph){ if(!C || !NIGHTS[C.n-1].door || !PHRASES[ph]) return false;
+  if(ph==='arigatou' && C.bye.length){ const b=C.bye.shift(), tip=30*b.n; C.earned+=tip; C.sk.ok++; good(ph); SFX.coins(); sparkle(b.x,170,10); toast(T(`They'll come again! +¥${tip}`,`他们还会再来！+¥${tip}`),'ok'); return true; }
+  const want=doorWant(), D=C.door;
+  if(!D || ph!==want){ C.sk.bad++; if(D) D.conf=1.6; SFX.hmm(); noteAct();
+    toast(!D ? T('Nobody is at the door right now.','现在门口没有人。') : D.step==='wait' && ph==='douzo' ? T('No room yet: wait until enough seats are free.','还没有位子：等空出足够的座位。') : T('Hm? They look confused. Try another line.','嗯？客人一脸疑惑。换一句试试。'),'bad'); return false; }
+  C.sk.ok++; good(ph); D.happy=1.2; SFX.ding();
+  if(ph==='irasshai'){ D.step='count'; D.t=0; }
+  else if(ph==='nanmei'){ D.step='seat'; D.t=0; D.ans=COUNT[doorGroup().length]||''; }
+  else if(ph==='shoushou'){ D.step='wait'; D.t=0; }
+  else if(ph==='douzo') seatGroup();
+  return true; }
+function good(ph){ PMASTER[ph]=(PMASTER[ph]||0)+1; store.set('phrases',PMASTER); noteAct(); }
+function seatGroup(){ const grp=doorGroup(), free=freeSeats(); let pick=null;   // side by side where they can, else wherever is free
+  for(let i=0;i+grp.length<=C.seats.length && !pick;i++){ const run=grp.map((_,k)=>i+k); if(run.every(k=>free.includes(k))) pick=run; }
+  if(!pick) pick=free.slice(0,grp.length);
+  grp.forEach((q,k)=>cSeat(q.id,pick[k])); C.door=null; }
+// what the microphone heard → the line it most likely is
+const toHira=t=>t.replace(/[\u30A1-\u30F6]/g,c=>String.fromCharCode(c.charCodeAt(0)-0x60)).replace(/[\s、。！？!?.,・〜ー-]/g,'');
+function matchPhrase(alts){ for(const a of alts){ const h=toHira(a||''); if(!h) continue;
+    for(const ph of PH_ORDER) for(const v of PHRASES[ph].say){ const n=toHira(v); if(h.includes(n) || (h.length>=4 && n.includes(h))) return ph; } } return null; }
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition; let MIC=null;
+function micListen(){ if(!SR || MIC) return; try{ const r=new SR(); r.lang='ja-JP'; r.interimResults=false; r.maxAlternatives=4; MIC=r; audio();
+    r.onresult=e=>{ const alts=[...e.results[0]].map(a=>a.transcript), ph=matchPhrase(alts); if(ph) cSay(ph); else toast(T(`Heard 「${alts[0]||'…'}」: not one of the lines`,`听到「${alts[0]||'…'}」：不是这几句`),'bad'); };
+    r.onerror=e=>{ if(e.error!=='no-speech' && e.error!=='aborted') toast(T(`The microphone isn't working here (${e.error}). Tap the line instead.`,`这里麦克风不能用（${e.error}）。改成点句子。`),'bad'); };
+    r.onend=()=>{ MIC=null; const b=$('#say .mic'); if(b) b.classList.remove('on'); };
+    r.start(); const b=$('#say .mic'); if(b) b.classList.add('on'); }catch(e){ MIC=null; } }
+// the strip of lines: shown when there's something to say (a group at the door, or one leaving)
+let sayK='';
+function sayTick(){ const el_=$('#say'), N=NIGHT && C && NIGHTS[C.n-1]; const on=!!(N && N.door && meCounter() && NIGHT.ph==='run' && (C.door || C.bye.length));
+  if(el_.hidden===on) el_.hidden=!on; if(!on) return;
+  const k=LANG+':'+PH_ORDER.map(p=>pknown(p)?1:0).join('')+(SR?'m':'');
+  if(k!==sayK){ sayK=k; el_.innerHTML=PH_ORDER.map(ph=>{ const P=PHRASES[ph]; return `<button type="button" data-say="${ph}">${P.k}${pknown(ph)?'':`<small>${P.ro}</small>`}</button>`; }).join('')+(SR?`<button type="button" class="mic" data-mic="1" aria-label="${T('Say it','说出来')}">🎤</button>`:''); } }
+const doorHint=w=>({irasshai:T('Guests at the door: greet them. いらっしゃいませ (Welcome!)','门口来客人了：打招呼。いらっしゃいませ（欢迎光临）'),
+  nanmei:T('Ask how many they are: 何名様ですか','问几位：何名様ですか（なんめいさまですか）'),
+  douzo:T('There\'s room: show them in. こちらへどうぞ','有位子：请他们进来。こちらへどうぞ'),
+  shoushou:T('Not enough seats: ask them to wait. 少々お待ちください','位子不够：请他们稍等。少々お待ちください')}[w]);
 
 // ---------- しばBot: plays the other station when you practise ----------
 const BK={q:[], busy:null};
@@ -573,7 +650,8 @@ function botCook(dt){ if(!BK.busy && BK.q.length){ const j=BK.q.shift(); BK.busy
   if(BK.busy){ BK.busy.left-=dt; if(BK.busy.left<=0){ const o=BK.busy.o; BK.busy=null; cRecv({t:'bowl', bowl:{id:++BID, noodles:'ready', broth:.9, tops:o.slice()}}); } } }
 const BC={t:1};
 function botCounter(dt){ BC.t-=dt; if(BC.t>0) return; BC.t=rnd(.7,1.2);
-  const fs=freeSeat(); if(C.queue.length && fs>=0){ cSeat(C.queue[0].id, fs); return; }
+  if(NIGHTS[C.n-1].door){ if(C.bye.length){ cSay('arigatou'); return; } const w=doorWant(); if(w && C.door.t>.6){ cSay(w); return; } }
+  else { const fs=freeSeat(); if(C.queue.length && fs>=0){ cSeat(C.queue[0].id, fs); return; } }
   for(const s of C.seats){ const g=s.g; if(!g) continue;
     if(g.st==='ask'){ cTake(s.i); return; }
     if(g.st==='order' && !g.sent && g.t>1.2){ cSend(s.i); return; }
@@ -682,8 +760,11 @@ function drawCounter(dt){ const g=ctx; if(!LAYER.cb) LAYER.cb=mkLayer(counterBG)
   const drags=[...PTRS.values()], dk=k=>drags.find(d=>d.kind===k);
   // guests waiting out in the rain, under umbrellas
   C.queue.forEach(q=>{ const dg=dk('guest'); if(dg && dg.id===q.id) return; const bob=Math.sin(clock*2+q.id)*1.2;
-    drawGuest(g,LOOKS[q.who],q.x,286+bob,.5,'',{clip:{id:'idle', t:clock+q.id, loop:true}}); g.fillStyle=['#E36A5A','#6C8BE0','#F2C94C','#7FBF8F'][q.id%4]; g.beginPath(); g.ellipse(q.x,286-(painted()?104:84)+bob,40,16,0,Math.PI,TAU); g.fill(); g.strokeStyle='#3A2A20'; g.lineWidth=2; g.beginPath(); g.moveTo(q.x,286-(painted()?104:84)+bob); g.lineTo(q.x,286-40+bob); g.stroke();
+    const D=C.door, inDoor=D && q.grp===D.grp, qm=inDoor&&D.conf>0?'hmm':inDoor&&D.happy>0?'happy':'';
+    drawGuest(g,LOOKS[q.who],q.x,286+bob,.5,qm,{clip:{id:qm==='hmm'?'confused':'idle', t:clock+q.id, loop:true}}); g.fillStyle=['#E36A5A','#6C8BE0','#F2C94C','#7FBF8F'][q.id%4]; g.beginPath(); g.ellipse(q.x,286-(painted()?104:84)+bob,40,16,0,Math.PI,TAU); g.fill(); g.strokeStyle='#3A2A20'; g.lineWidth=2; g.beginPath(); g.moveTo(q.x,286-(painted()?104:84)+bob); g.lineTo(q.x,286-40+bob); g.stroke();
     const pulse=(clock*1.4)%1; g.strokeStyle=`rgba(94,211,176,${(.9*(1-pulse)).toFixed(2)})`; g.lineWidth=3; el(g,q.x,240,30+pulse*14,42+pulse*14); g.stroke(); });
+  // the group's leader answers how many they are
+  if(C.door && C.door.ans){ const G=doorGroup(); if(G.length) bubble(g,Math.min(G[0].x,880),196,C.door.ans); }
   // seats: the guests sit behind the counter
   C.seats.forEach(s=>{ const gg=s.g; if(!gg) { if(dk('guest') && freeSeat()===s.i){ g.strokeStyle='rgba(94,211,176,.95)'; g.lineWidth=3; g.setLineDash([8,6]); rr(g,s.x-62,150,124,170,24); g.stroke(); g.setLineDash([]); } return; }
     const ken=kenOn(gg); let x=s.x, y=318, sc=1, a=1;
@@ -744,6 +825,8 @@ function hintCook(){ const tk=K.tickets.find(t=>!t.done);
   const extra=bw.tops.find(w=>!tk.o.includes(w)); if(extra) return {t:T('Take off what they didn\'t order','把没点的配料拿掉'), from:bowlTopAt(s.x,s.y,1,extra), to:KL.scrap};
   return {t:T('Slide the bowl to the pass','把碗滑到出餐口'), from:{x:s.x,y:s.y+24}, to:KL.pass}; }
 function hintCounter(){ const fs=freeSeat(), seat=C.seats;
+  if(NIGHTS[C.n-1].door){ if(C.bye.length) return {t:T('They\'re leaving: see them off. ありがとうございました','客人要走了：送客。ありがとうございました'), at:{x:C.bye[0].x,y:160}};
+    const w=doorWant(), G=doorGroup(); if(w) return {t:doorHint(w), at:{x:G[0].x,y:200}}; }
   for(const s of seat){ const g=s.g; if(!g) continue;
     if(g.st==='spicy') return {t:T(`Too spicy! Pour ${LOOKS[g.who].nm} some tea`,`太辣了！给${LOOKS[g.who].nm}倒杯茶`), from:CL.teapot, to:{x:cupX(s),y:CUPY-10}, now:true};   // new to everyone: shown at once
     if(s.bowl && s.bowl.refused) return {t:T('Wrong bowl: drag it back to the kitchen','碗不对：拖回厨房'), from:{x:s.x,y:362}, to:{x:147,y:280}};
@@ -753,7 +836,7 @@ function hintCounter(){ const fs=freeSeat(), seat=C.seats;
     if(g.st==='order' && !g.sent) return {t:T(`Say 「${g.o.map(w=>WORDS[w].k).join('・')}」 to the cook (or tap Send ▶)`,`对厨师说「${g.o.map(w=>WORDS[w].k).join('・')}」（或点发送 ▶）`), at:{x:s.x,y:120}};
     if(g.st==='order' && !g.tea) return {t:T('While they wait: hold the teapot over their cup','等的时候：把茶壶按在杯子上倒茶'), from:CL.teapot, to:{x:cupX(s),y:CUPY-10}}; }
   for(const s of seat){ if(s.coins) return {t:T('Tap the coins','点硬币收钱'), at:{x:s.x+92,y:384}, tap:true}; if(s.bowl && s.bowl.empty) return {t:T('Clear the bowl into the dishes','把空碗收进洗碗盆'), from:{x:s.x,y:362}, to:CL.tub}; if(s.dirty) return {t:T('Rub the counter clean with the cloth','用抹布把台面擦干净'), from:CL.cloth, to:{x:s.x,y:392}}; }
-  if(C.queue.length && fs>=0) return {t:T('Someone\'s waiting in the rain: drag them to the seat','有人在雨里等：把他拖到座位上'), from:{x:C.queue[0].x,y:240}, to:{x:C.seats[fs].x,y:240}};
+  if(C.queue.length && fs>=0 && !NIGHTS[C.n-1].door) return {t:T('Someone\'s waiting in the rain: drag them to the seat','有人在雨里等：把他拖到座位上'), from:{x:C.queue[0].x,y:240}, to:{x:C.seats[fs].x,y:240}};
   return null; }
 let HINT=null, hintK='';
 function hintTick(){ if(!NIGHT || NIGHT.ph!=='run'){ HINT=null; } else { const h=meCook()?hintCook():hintCounter(), teach=curTeach(), idle=clock-lastAct;
@@ -800,12 +883,13 @@ function kDrop(it,p){ const q={x:p.x, y:p.y-LIFT};
   if(it.kind==='untop'){ const i=slotAt(q); if(i!==it.i) kUntop(it.i,it.w); return; }
   if(it.kind==='bowl'){ if(q.x>820 && q.y>220) kSlide(it.i); else if(dist(q,KL.scrap)<60) kDump(it.i); return; }
   if(it.kind==='back'){ const i=slotAt(q); if(i>=0) kTakeBack(it.back,i); return; } }
+document.addEventListener('click',e=>{ const b=e.target.closest('#say button'); if(!b) return; if(b.dataset.mic){ micListen(); return; } audio(); cSay(b.dataset.say); });
 function cDown(p){
   for(const s of C.seats){ if(s.coins && dist(p,{x:s.x+92,y:384})<38) return {kind:'tap', fn:()=>cCollect(s.i)}; }
   for(const s of C.seats){ const g=s.g; if(g && g.st==='ask' && Math.abs(p.x-s.x)<110 && p.y>80 && p.y<320) return {kind:'tap', fn:()=>cTake(s.i)}; }
   for(const s of C.seats){ if(s.bowl && s.bowl.refused && dist(p,{x:s.x,y:372})<56) return {kind:'refused', si:s.i}; if(s.bowl && s.bowl.empty && dist(p,{x:s.x,y:372})<56) return {kind:'dish', si:s.i}; }
   for(let j=0;j<C.pass.length;j++){ const P=CL.pass[j%2]; if(dist(p,{x:P.x,y:P.y+(j>1?-14:0)+8})<50) return {kind:'pbowl', id:C.pass[j].id}; }
-  for(const q of C.queue){ if(Math.abs(p.x-q.x)<40 && p.y>170 && p.y<300) return {kind:'guest', id:q.id}; }
+  if(!NIGHTS[C.n-1].door) for(const q of C.queue){ if(Math.abs(p.x-q.x)<40 && p.y>170 && p.y<300) return {kind:'guest', id:q.id}; }
   if(dist(p,CL.teapot)<46) return {kind:'teapot'};
   if(dist(p,CL.cloth)<40) return {kind:'cloth'};
   return null; }
@@ -840,14 +924,14 @@ function startNight(n){ NIGHT={n, ph:'run', t:0}; kReset(); cReset(n); PT.length
   hideUI(); $('#hud').hidden=false; $('#langBtn').hidden=true; SFX.open();
   $('#role').innerHTML=meCook()?`${ICONSVG.pot}${T('COOK','厨师')}`:`${ICONSVG.bowl}${T('COUNTER','柜台')}`; }
 function closeNight(){ // the counter decides the night is over and tells the kitchen what it earned
-  const N=NIGHTS[C.n-1], sum={n:C.n, served:C.served, total:N.guests.length, left:C.left, earned:C.earned, words:C.words, q:C.served?C.quality/C.served:0};
+  const N=NIGHTS[C.n-1], sum={n:C.n, served:C.served, total:N.guests.length, left:C.left, earned:C.earned, words:C.words, q:C.served?C.quality/C.served:0, sk:N.door?C.sk:null};
   if(MODE==='net') netSend({t:'close', sum}); showClose(sum); }
 function showClose(sum){ if(!NIGHT || NIGHT.ph==='close') return; NIGHT.ph='close'; PTRS.clear(); SFX.close();
   for(const w in sum.words){ MASTER[w]=(MASTER[w]||0)+sum.words[w]; } store.set('mastery',MASTER);
   const before=BANK; BANK+=sum.earned; store.set('bank',BANK); const newDec=DECOR.filter(d=>before<d.at && BANK>=d.at); for(const k in LAYER) LAYER[k]=null;
   if(sum.n===1 && sum.served>=1) store.set('night2',1);
   const stars=sum.served===sum.total ? (sum.q>.95?3:2) : sum.served>0?1:0;
-  $('#hud').hidden=true; $('#cards').innerHTML=''; $('#tix').innerHTML='';
+  $('#hud').hidden=true; $('#cards').innerHTML=''; $('#tix').innerHTML=''; $('#say').hidden=true;
   if(HUB) HUB.result({score:sum.earned, stars, win:sum.served===sum.total});
   const words=Object.keys(sum.words); const N=NIGHTS[sum.n-1], nxt=sum.n<NIGHTS.length && store.get('night2',0);
   let btns;
@@ -856,7 +940,7 @@ function showClose(sum){ if(!NIGHT || NIGHT.ph==='close') return; NIGHT.ph='clos
   else btns=`${nxt?`<button class="btn" data-a="bnext">${T('Next night','下一晚')} →</button>`:''}<button class="btn mint" data-a="bagain">${T('Again','再来')}</button><button class="btn ghost" data-a="bswap">⇄ ${T('Try the other role','换个角色')}</button><button class="btn ghost" data-a="lobby">${T('Lobby','大厅')}</button>`;
   ui(`<div class="kicker">閉店 · ${T('Closing time','打烊')}</div><h2>${T('We made these bowls together.','这些面是我们一起做的。')}</h2>
     <div class="stars">${'★'.repeat(stars)}<span class="off">${'★'.repeat(3-stars)}</span></div>
-    <div class="stats"><span>${T('Bowls served','上了几碗')}<b>${sum.served}/${sum.total}</b></span><span>${T('Tonight','今晚收入')}<b>¥${sum.earned.toLocaleString('ja-JP')}</b></span><span>${T('Stall savings','小摊存款')}<b>¥${BANK.toLocaleString('ja-JP')}</b></span></div>
+    <div class="stats"><span>${T('Bowls served','上了几碗')}<b>${sum.served}/${sum.total}</b></span><span>${T('Tonight','今晚收入')}<b>¥${sum.earned.toLocaleString('ja-JP')}</b></span><span>${T('Stall savings','小摊存款')}<b>¥${BANK.toLocaleString('ja-JP')}</b></span>${sum.sk?`<span>接客<b>${sum.sk.ok}/${sum.sk.ok+sum.sk.bad}</b></span>`:''}</div>
     ${words.length?`<p class="note" style="margin-bottom:0">${T('Words you used tonight','今晚用到的单词')}</p><div class="words">${words.map(w=>`<span><img src="${ICON[w]}" alt="">${WORDS[w].k}<small>${WORDS[w].ro} · ${esc(mean(w))} ×${sum.words[w]}</small></span>`).join('')}</div>`:''}
     ${newDec.length?`<p class="note" style="color:#2C8F72;font-weight:900">${T('New for the stall:','小摊添了新东西：')} ${newDec.map(d=>esc(T(d.nm[0],d.nm[1]))).join(' · ')}</p>`:''}
     ${sum.n===1 && nxt && !HUB?`<p class="note">${T('Next night: two seats, two-topping orders, and a new word: なると.','下一晚：两个座位，两种配料的订单，还有新单词：なると。')}</p>`:''}
@@ -870,6 +954,7 @@ const hideUI=()=>{ $('#ui').hidden=true; };
 const ROLE_CARDS=p=>`<div class="roles">
   <button class="role" data-a="${p}cook"><b>${ICONSVG.pot}${T('Cook','厨师')}</b><small>${T('Noodles into the basket, the basket into the pot, lift them when the dial is green, pour the broth, add the toppings the counter tells you, slide the bowl to the pass.','把面放进漏勺、放进锅里，表盘变绿就捞起来，倒汤，加柜台告诉你的配料，把碗滑到出餐口。')}</small></button>
   <button class="role" data-a="${p}counter"><b>${ICONSVG.bowl}${T('Counter','柜台')}</b><small>${T('Invite guests in from the rain, hear their order and say it to the cook, pour them tea, serve the right bowl, then clear and wipe.','把客人从雨里请进来，听他们点单并告诉厨师，给他们倒茶，端上对的碗，再收拾擦干净。')}</small></button></div>`;
+const STEPS_DOOR=()=>[T('A group arrives at the door: greet them (いらっしゃいませ)','一群客人到门口：打招呼（いらっしゃいませ）'),T('Ask how many (何名様ですか) and listen to the answer','问几位（何名様ですか），听他们回答'),T('Room for them? Show them in (こちらへどうぞ). Not enough seats? Ask them to wait (少々お待ちください)','有位子？请进（こちらへどうぞ）。位子不够？请稍等（少々お待ちください）'),T('Take orders, serve and clear as usual','照常点单、上菜、收拾'),T('When the group leaves: ありがとうございました','客人离开时：ありがとうございました')];
 const STEPS={ cook:[T('Drag noodles into the basket, then the basket into the boiling pot','把面拖进漏勺，再把漏勺放进滚水锅'),T('Lift it when the dial is green, and tip the noodles into a bowl','表盘变绿就提起来，把面倒进碗里'),T('Hold the ladle over the bowl to pour the broth','把汤勺按在碗上倒汤'),T('Add the topping your partner names (the trays are labelled in kana)','加搭档说的配料（托盘上写着假名）'),T('Slide the bowl to the pass','把碗滑到出餐口')],
   counter:[T('Drag a guest in from the rain to a seat','把客人从雨里拖到座位上'),T('Tap them when they raise a hand: their order appears','客人举手时点一下：会显示他点的菜'),T('Say the word to the cook (or tap Send)','把单词说给厨师听（或点"发送"）'),T('Pour tea while they wait, then serve the bowl from the pass','等的时候倒茶，然后从出餐口端碗上桌'),T('Collect the coins, clear the bowl, wipe the counter','收硬币，收碗，擦台面')] };
 const langBtn=()=>{ const b=$('#langBtn'); b.hidden=!!HUB; b.innerHTML=LANG==='zh'?'<em>EN</em> · <b>中文</b>':'<b>EN</b> · <em>中文</em>'; };
@@ -883,11 +968,11 @@ function lobbyUI(msg){ MODE=''; NIGHT=null; $('#hud').hidden=true; langBtn(); co
     <p class="note">${T('Online co-op: two phones, anywhere (a room code or an invite link). Practice: you take one role, しばBot the other.','联机合作：两部手机，在哪都行（房间码或邀请链接）。练习：你一个角色，しばBot 另一个。')}</p>`); }
 // a ready card before each night: who does what, and a Ready button (that tap also wakes the sound up on iPhone)
 const RD={me:false, them:false, n:1};
-function readyUI(){ const N=NIGHTS[RD.n-1], p=esc(partnerName()), cook=meCook(), canPick=(MODE==='bot'||meCounter()) && store.get('night2',0); $('#langBtn').hidden=true;
+function readyUI(){ const N=NIGHTS[RD.n-1], p=esc(partnerName()), cook=meCook(), canPick=(MODE==='bot'||meCounter()); $('#langBtn').hidden=true;
   ui(`<div class="kicker">${T('Tonight','今晚')} · ${esc(T(N.name[0],N.name[1]))} · ${N.guests.length} ${T('guests','位客人')}</div><h2>${cook?T('You cook','你煮面'):T('You run the counter','你管柜台')}</h2>
     <p class="lead">${cook?T(`${p} runs the counter and hears the orders. Ask them what to put in each bowl.`,`${p} 管柜台、听客人点单。问 TA 每碗要加什么。`):T(`${p} cooks. Say each order out loud so they know what to make.`,`${p} 煮面。把每份订单大声说出来，让 TA 知道做什么。`)}</p>
-    <ol class="steps">${STEPS[ROLE].map(s=>`<li>${esc(s)}</li>`).join('')}</ol>
-    ${canPick?`<div class="row">${NIGHTS.map(n=>`<button class="btn ${RD.n===n.n?'mint':'ghost'}" data-night="${n.n}">${esc(T(n.name[0],n.name[1]))}</button>`).join('')}</div>`:''}
+    <ol class="steps">${(N.door && !cook?STEPS_DOOR():STEPS[ROLE]).map(s=>`<li>${esc(s)}</li>`).join('')}</ol>
+    ${canPick?`<div class="row">${NIGHTS.filter(n=>n.n===1 || n.door || store.get('night2',0)).map(n=>`<button class="btn ${RD.n===n.n?'mint':'ghost'}" data-night="${n.n}">${esc(T(n.name[0],n.name[1]))}</button>`).join('')}</div>`:''}
     <div class="row"><button class="btn" data-a="ready"${RD.me?' disabled':''}>${RD.me?T('Ready ✓','已准备 ✓'):T('Ready','准备好了')}</button><span class="note" style="margin:0">${MODE==='bot'?'':RD.them?T(`${p} is ready`,`${p} 已准备`):T(`Waiting for ${p}…`,`等待 ${p}…`)}</span></div>`); }
 function partnerName(){ return MODE==='bot' ? 'しばBot' : HUB ? HUB.names().partner : T('your partner','搭档'); }
 function roomUI(state){ const c=LINK.code; $('#langBtn').hidden=true;
@@ -932,7 +1017,7 @@ document.addEventListener('click', async e=>{ const b=e.target.closest('button')
   if(b.dataset.night){ RD.n=+b.dataset.night; if(MODE==='net') netSend({t:'night', n:RD.n}); readyUI(); return; }
   if(!a) return;
   if(a==='practice') return ui(`<div class="kicker">${T('Practice with しばBot','和 しばBot 练习')}</div><h2>${T('Pick your role','选角色')}</h2><p class="lead">${T('しばBot takes the other one. As the counter, tap Send so しばBot knows the order (it can\'t hear you).','しばBot 做另一个角色。你当柜台时，要点"发送"让 しばBot 知道订单（它听不到你说话）。')}</p>${ROLE_CARDS('p')}<div class="row"><button class="btn ghost" data-a="lobby">${T('Back','返回')}</button></div>`);
-  if(a==='pcook'||a==='pcounter'){ MODE='bot'; ROLE=a==='pcook'?'cook':'counter'; RD.n=store.get('night2',0)?RD.n:1; RD.me=false; RD.them=true; readyUI(); return; }
+  if(a==='pcook'||a==='pcounter'){ MODE='bot'; ROLE=a==='pcook'?'cook':'counter'; RD.n=store.get('night2',0)||NIGHTS[RD.n-1].door?RD.n:1; RD.me=false; RD.them=true; readyUI(); return; }
   if(a==='create') return ui(`<div class="kicker">${T('Open a room','开房间')}</div><h2>${T('Which role do you take first?','你先当哪个角色？')}</h2>${ROLE_CARDS('h')}<div class="row"><button class="btn ghost" data-a="lobby">${T('Back','返回')}</button></div>`);
   if(a==='hcook'||a==='hcounter'){ ROLE=a==='hcook'?'cook':'counter'; MODE='net'; RD.n=1; LINK.open(onNet, linkState); NET_.ch=LINK; LINK.host(); roomUI('opening'); return; }
   if(a==='join'){ const code=($('#codeIn').value||'').trim().toUpperCase(); if(!/^[A-Z0-9]{4}$/.test(code)) return lobbyUI(T('Type the 4-character room code.','请输入 4 位房间码。')); joinRoom(code); return; }
@@ -964,7 +1049,7 @@ function frame(now){ requestAnimationFrame(frame); let dt=last?Math.min(.05,(now
   else { if(!C) cReset(1); if(!K) kReset(); drawCounter(dt); }
   drawParticles(ctx); ctx.restore();
   hintTick(); domTick(); hudTick(); }
-function hudTick(){ if(!NIGHT || !C) return; const y='¥'+C.earned.toLocaleString('ja-JP'), el_=$('#yen'); if(meCounter()){ if(el_.dataset.k!==y){ el_.dataset.k=y; el_.innerHTML=`<b>${y}</b>`; } el_.hidden=false; } else el_.hidden=true;
+function hudTick(){ if(!NIGHT || !C) return; sayTick(); const y='¥'+C.earned.toLocaleString('ja-JP'), el_=$('#yen'); if(meCounter()){ if(el_.dataset.k!==y){ el_.dataset.k=y; el_.innerHTML=`<b>${y}</b>`; } el_.hidden=false; } else el_.hidden=true;
   const N=NIGHTS[(NIGHT.n||1)-1], tot=N.guests.length, k=meCounter()?C.served+':'+C.next+':'+C.left:'c', pr=$('#prog');
   if(meCounter()){ if(pr.dataset.k!==k){ pr.dataset.k=k; pr.innerHTML=`${esc(T(N.name[0],N.name[1]))} · ${Array.from({length:tot},(_,i)=>`<i class="${i<C.served+C.left?'on':i<C.next?'now':''}"></i>`).join('')}`; } pr.hidden=false; } else pr.hidden=true; }
 requestAnimationFrame(frame);
@@ -974,7 +1059,7 @@ if(HUB){ MODE='net'; ROLE=HUB.role(); NET_.ch=HUB.open(onNet, setLinkHub); apply
 else { const inv=(location.hash.match(/join=([A-Za-z0-9]{4})/)||[])[1]; if(inv){ history.replaceState(null,'',location.pathname); joinRoom(inv.toUpperCase()); } else lobbyUI(); }
 function setLinkHub(up){ setLink(up); }
 window.__mr={ role:()=>ROLE, mode:()=>MODE, K:()=>K, C:()=>C, N:()=>NIGHT, KL, CL, RD, HINT:()=>HINT, scr:(x,y)=>toS(x,y), link:()=>LINK, seatX:()=>C?C.seats.map(s=>s.x):[],
-  act:{kNest, kLower, kLift, kTop, kUntop, kSlide, kDump, kTakeBack, cSeat, cTake, cSend, cServe, cReturn, cCollect, cClear, cWipe, cTea}, toCounter, toCook, judge, words:()=>MASTER, bank:()=>BANK,
+  act:{kNest, kLower, kLift, kTop, kUntop, kSlide, kDump, kTakeBack, cSeat, cTake, cSend, cServe, cReturn, cCollect, cClear, cWipe, cTea, cSay}, door:{want:()=>doorWant(), match:matchPhrase, PHRASES}, toCounter, toCook, judge, words:()=>MASTER, bank:()=>BANK,
   ken:{ d:()=>KEN.d, clip:g=>kenClip(g), ready:()=>!!KEN.d && Object.values(KEN.im).every(i=>i.complete && i.naturalWidth) } };
 })();
 </script>
