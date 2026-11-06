@@ -151,6 +151,13 @@ const LOOKS={ haru:{nm:'ハル', skin:'#F6CBA4', hair:'#4A2A1C', style:'pony', c
 for(const k in LOOKS) LOOKS[k].id=k;
 // where each painted guest's blank face sits, as fractions of the picture: x = centre, t = top (under the bangs), w = width.
 // Measured by tests/mr_art_import.js; the game draws the dot eyes there.
+// the same, on the "calling for staff" pictures (the same framing as the sitting ones)
+const FACE_ASK={ haru:{x:.471,t:.45,w:.374}, ken:{x:.481,t:.414,w:.397}, mika:{x:.482,t:.367,w:.371}, sora:{x:.487,t:.397,w:.404}, yuki:{x:.479,t:.345,w:.362} };
+// the owner's painted things (art/prop-*.webp), each laid over the shape the code drew before so every drag and drop spot still fits:
+// [width on the stage at scale 1, anchor x, anchor y] — the anchor (fractions of the picture) lands on the code's reference point
+const PROP_FIT={ bowl:[118,.5,.24], 'bowl-full':[118,.5,.24], egg:[46,.5,.5], naruto:[40,.5,.5], negi:[36,.5,.5], box:[136,.5,.52], nest:[36,.5,.5],
+  ladle:[84,.2,.86], pot:[232,.5,.27], broth:[132,.5,.28], basket:[100,.3,.62], 'basket-full':[100,.3,.62], tray:[122,.5,.5] };
+function prop(g,n,x,y,s=1){ const im=ART['prop-'+n]; if(!artReady('prop-'+n)) return false; const F=PROP_FIT[n], w=F[0]*s, h=w*im.naturalHeight/im.naturalWidth; g.drawImage(im,x-F[1]*w,y-F[2]*h,w,h); return true; }
 const FACE={ haru:{x:.47,t:.452,w:.37}, ken:{x:.486,t:.414,w:.399}, mika:{x:.485,t:.369,w:.375}, sora:{x:.487,t:.395,w:.404}, yuki:{x:.484,t:.344,w:.374} };
 // teach 2: every step is shown; 1: a hint after a few idle seconds; 0: only if you are stuck for a while
 const NIGHTS=[
@@ -200,7 +207,8 @@ function mkLayer(draw){ const c=document.createElement('canvas'); c.width=Math.c
 if(document.fonts) document.fonts.load('900 20px "M PLUS Rounded 1c"','たまごねぎなるとまよなか屋ラーメン').then(()=>{ for(const k in LAYER) LAYER[k]=null; }).catch(()=>{});
 // the owner's painted art (art/*.webp); until a picture has loaded, the code-drawn version stands in
 const ART={}, artReady=n=>!!(ART[n] && ART[n].complete && ART[n].naturalWidth);
-for(const n of ['kitchen','counter',...Object.keys(LOOKS).map(k=>'guest-'+k)]){ const im=new Image(); im.onload=()=>{ for(const k in LAYER) LAYER[k]=null; }; im.src='art/'+n+'.webp'; ART[n]=im; }
+const PROPS=['egg','naruto','negi','box','nest','ladle','pot','broth','basket','basket-full','tray','bowl','bowl-full'];
+for(const n of ['kitchen','counter',...Object.keys(LOOKS).flatMap(k=>['guest-'+k,'ask-'+k]),...PROPS.map(p=>'prop-'+p)]){ const im=new Image(); im.onload=()=>{ for(const k in LAYER) LAYER[k]=null; if(/^prop-(egg|negi|naruto)$/.test(n)) makeIcons(); }; im.src='art/'+n+'.webp'; ART[n]=im; }
 // Ken's animation clips: the owner's handoff, cut by tests/mr_ken_import.js into art/ken (a 4-column atlas per clip, the frame order and timing
 // of the preview GIFs, a waist anchor, and where his blank face is on each frame). Until they load, Ken is his still picture.
 const KEN={d:null, im:{}};
@@ -250,13 +258,19 @@ function drawNegi(g,x,y,s,seedN){ let sd=seedN||3; const r=()=>(sd=(sd*9301+4929
 function drawNaruto(g,x,y,s,rot){ g.save(); g.translate(x,y); g.rotate(rot||0); g.scale(s,s);
   g.beginPath(); for(let i=0;i<=48;i++){ const a=i/48*TAU, r=13+Math.sin(a*12)*1.1; g.lineTo(Math.cos(a)*r, Math.sin(a)*r*.82); } g.closePath(); g.fillStyle=rg(g,-3,-3,1,14,[[0,'#FFFFFF'],[1,'#EDE3DA']]); g.fill();
   g.strokeStyle='#F08AB0'; g.lineWidth=2.6; g.lineCap='round'; g.beginPath(); for(let i=0;i<=40;i++){ const a=i/40*TAU*1.7, r=1+i*.24; g.lineTo(Math.cos(a)*r, Math.sin(a)*r*.82); } g.stroke(); g.restore(); }
-const TOP_DRAW={ tamago:(g,x,y,s)=>{ drawEgg(g,x-7*s,y,s*.95,-.15); drawEgg(g,x+9*s,y+3*s,s*.95,.2); }, negi:(g,x,y,s)=>drawNegi(g,x,y,s,5), naruto:(g,x,y,s)=>{ drawNaruto(g,x-5*s,y,s*.9,.2); drawNaruto(g,x+8*s,y+4*s,s*.9,-.3); } };
+const TOP_CODE={ tamago:(g,x,y,s)=>{ drawEgg(g,x-7*s,y,s*.95,-.15); drawEgg(g,x+9*s,y+3*s,s*.95,.2); }, negi:(g,x,y,s)=>drawNegi(g,x,y,s,5), naruto:(g,x,y,s)=>{ drawNaruto(g,x-5*s,y,s*.9,.2); drawNaruto(g,x+8*s,y+4*s,s*.9,-.3); } };
 // where each topping sits in a bowl (fractions of the bowl's radii), so it can be picked off again
+const TOP_SPR={tamago:'egg', negi:'negi', naruto:'naruto'};
+const TOP_DRAW={}; for(const w in TOP_CODE) TOP_DRAW[w]=(g,x,y,s)=>{ if(!prop(g,TOP_SPR[w],x,y,s)) TOP_CODE[w](g,x,y,s); };
 const TOP_POS={ tamago:[-.42,.08], negi:[0,-.28], naruto:[.42,.12] };
 const DONE_COL={raw:'#F3E9CF', ready:'#F2C64E', soft:'#EED99A', soggy:'#EFE6C2'};
 function noodleLines(g,x,y,rx,ry,s,n,col,lw){ g.strokeStyle='rgba(120,80,20,.3)'; g.lineWidth=lw+1.4*s; for(let pass=0;pass<2;pass++){ for(let i=0;i<n;i++){ const yy=y-ry*.45+i*ry*.16; g.beginPath(); for(let k=0;k<=12;k++){ const xx=x-rx*.7+k*rx*.117, w=Math.sin(k*1.3+i*2.1)*2.3*s; k?g.lineTo(xx,yy+w):g.moveTo(xx,yy+w); } g.stroke(); } g.strokeStyle=col; g.lineWidth=lw; } }
 // a bowl from the counter: white, with the red stripes; b = {noodles, broth, tops}; eaten 0..1
 function drawBowl(g,x,y,s,b,eaten=0){ const rx=58*s, ry=19*s, h=46*s;
+  if(artReady('prop-bowl')){ shadow(g,x,y+h-1*s,rx*.82,ry*.5,.32); prop(g,'bowl',x,y,s); if(!b) return;
+    // the painted full bowl fades in as broth (and noodles) go in, and out as it's eaten
+    const lv=clamp(Math.max(b.broth||0, b.noodles?.5:0),0,1)*(1-eaten); if(lv>.02){ g.save(); g.globalAlpha*=lv; prop(g,'bowl-full',x,y,s); g.restore(); }
+    if(eaten<.6) for(const t of b.tops||[]){ const p=TOP_POS[t]; TOP_DRAW[t](g,x+p[0]*rx,y+p[1]*ry,s*.8); } return; }
   shadow(g,x,y+h-1*s,rx*.82,ry*.5,.32);
   g.save(); g.beginPath(); g.moveTo(x-rx,y); g.bezierCurveTo(x-rx*.95,y+h*.75,x-rx*.45,y+h,x,y+h); g.bezierCurveTo(x+rx*.45,y+h,x+rx*.95,y+h*.75,x+rx,y); g.closePath(); g.clip();
   g.fillStyle=lg(g,x-rx,0,x+rx,0,[[0,'#E2D6C6'],[.38,'#FFFCF6'],[1,'#D3C6B4']]); g.fillRect(x-rx,y-2,rx*2,h+4);
@@ -274,6 +288,7 @@ function drawBowl(g,x,y,s,b,eaten=0){ const rx=58*s, ry=19*s, h=46*s;
   if(eaten<.6) for(const t of b.tops||[]){ const p=TOP_POS[t]; TOP_DRAW[t](g,x+p[0]*rx,y+p[1]*ry,s); } }
 const bowlTopAt=(x,y,s,t)=>{ const p=TOP_POS[t]; return {x:x+p[0]*58*s, y:y+p[1]*19*s}; };
 function drawBasket(g,x,y,full,done,dip){ // a noodle basket with its wooden handle; dip: drawn sunk into the pot (only the rim shows)
+  if(prop(g,full?'basket-full':'basket',x,y)) return;
   g.lineCap='round'; g.strokeStyle='#7A5236'; g.lineWidth=7; g.beginPath(); g.moveTo(x+18,y-8); g.lineTo(x+48,y-62); g.stroke(); g.strokeStyle='#A27750'; g.lineWidth=3; g.beginPath(); g.moveTo(x+20,y-12); g.lineTo(x+46,y-58); g.stroke();
   g.strokeStyle='#B8C0C8'; g.lineWidth=2.6; g.beginPath(); g.moveTo(x+12,y-2); g.lineTo(x+22,y-14); g.stroke();
   if(!dip){ g.beginPath(); g.moveTo(x-27,y); g.lineTo(x-15,y+40); g.lineTo(x+15,y+40); g.lineTo(x+27,y); g.closePath(); g.fillStyle='rgba(60,66,74,.75)'; g.fill(); g.strokeStyle='rgba(210,218,226,.55)'; g.lineWidth=1;
@@ -281,7 +296,7 @@ function drawBasket(g,x,y,full,done,dip){ // a noodle basket with its wooden han
     if(full){ g.save(); g.beginPath(); g.moveTo(x-25,y+1); g.lineTo(x-14,y+38); g.lineTo(x+14,y+38); g.lineTo(x+25,y+1); g.closePath(); g.clip(); g.strokeStyle=DONE_COL[done||'raw']; g.lineWidth=2.6;
       for(let i=0;i<6;i++){ g.beginPath(); for(let k=0;k<=8;k++){ const xx=x-24+k*6, yy=y+6+i*5+Math.sin(k*1.7+i)*2; k?g.lineTo(xx,yy):g.moveTo(xx,yy); } g.stroke(); } g.restore(); } }
   el(g,x,y,28,9); g.fillStyle=full?DONE_COL[done||'raw']:'rgba(40,46,52,.85)'; g.fill(); g.strokeStyle='#D9E0E6'; g.lineWidth=2.4; g.stroke(); }
-function drawLadle(g,x,y){ g.lineCap='round'; g.strokeStyle='#9AA3AD'; g.lineWidth=4; g.beginPath(); g.moveTo(x+12,y-4); g.lineTo(x+46,y-56); g.stroke(); g.strokeStyle='#5E4030'; g.lineWidth=7; g.beginPath(); g.moveTo(x+40,y-46); g.lineTo(x+52,y-66); g.stroke();
+function drawLadle(g,x,y){ if(prop(g,'ladle',x,y)) return; g.lineCap='round'; g.strokeStyle='#9AA3AD'; g.lineWidth=4; g.beginPath(); g.moveTo(x+12,y-4); g.lineTo(x+46,y-56); g.stroke(); g.strokeStyle='#5E4030'; g.lineWidth=7; g.beginPath(); g.moveTo(x+40,y-46); g.lineTo(x+52,y-66); g.stroke();
   el(g,x,y,18,10); g.fillStyle=lg(g,x-18,0,x+18,0,[[0,'#8A939C'],[.5,'#DCE3E9'],[1,'#7E8790']]); g.fill(); el(g,x,y-1,14,6.5); g.fillStyle='#B06A2E'; g.fill(); }
 function drawPotBody(g,x,y,rx,h,c1,c2){ g.beginPath(); g.moveTo(x-rx,y); g.lineTo(x-rx+4,y+h); g.quadraticCurveTo(x,y+h+16,x+rx-4,y+h); g.lineTo(x+rx,y); g.closePath();
   g.fillStyle=lg(g,x-rx,0,x+rx,0,[[0,c1],[.35,c2],[.6,'#9AA3AC'],[1,c1]]); g.fill(); }
@@ -314,7 +329,7 @@ function drawGuest(g,L,x,y,s,mood,o={}){ g.save(); g.translate(x,y); g.scale(s,s
       g.drawImage(im,(f%c.cols)*c.fw,Math.floor(f/c.cols)*c.fh,c.fw,c.fh,x0,y0,c.fw*k,c.fh*k);
       const F=c.faces[f]; if(F){ const fw=F[2]*k; g.translate(x0+F[0]*k, y0+F[1]*k+fw*.25); g.scale(fw/74,fw/74); face(g,KEN_MOOD[o.clip.id]||(mood==='happy'?'happy':''),{t:o.t,seed:2}); }
       g.restore(); return; } }
-  if(artReady('guest-'+L.id)){ const im=ART['guest-'+L.id], F=FACE[L.id], H=GUEST_H, W=H*im.naturalWidth/im.naturalHeight, top=26-H;
+  if(artReady('guest-'+L.id)){ const ask=mood==='ask' && artReady('ask-'+L.id), im=ART[(ask?'ask-':'guest-')+L.id], F=(ask?FACE_ASK:FACE)[L.id], H=GUEST_H, W=H*im.naturalWidth/im.naturalHeight, top=26-H;
     g.drawImage(im,-W/2,top,W,H);
     const fw=F.w*W; g.translate(-W/2+F.x*W, top+F.t*H+fw*.25); g.scale(fw/74,fw/74); face(g,mood,{t:o.t,seed:L.id.length*.61}); g.restore(); return; }
   // body and arms
@@ -356,7 +371,7 @@ function hair(g,L){ g.fillStyle=L.hair; const dark=shade(L.hair,-.3);
 function shade(hex,k){ const n=parseInt(hex.slice(1),16); let r=n>>16, gg=n>>8&255, b=n&255; const f=v=>Math.round(clamp(v*(1+k),0,255)); return `rgb(${f(r)},${f(gg)},${f(b)})`; }
 function lighten(hex,k){ const n=parseInt(hex.slice(1),16); let r=n>>16, gg=n>>8&255, b=n&255; const f=v=>Math.round(v+(255-v)*k); return `rgb(${f(r)},${f(gg)},${f(b)})`; }
 // small pictures of the toppings for the cards and tickets
-const ICON={}; for(const w of Object.keys(WORDS)){ const c=document.createElement('canvas'); c.width=c.height=96; const g=c.getContext('2d'); g.translate(48,52); TOP_DRAW[w](g,0,0,2.1); ICON[w]=c.toDataURL(); }
+const ICON={}; function makeIcons(){ for(const w of Object.keys(WORDS)){ const c=document.createElement('canvas'); c.width=c.height=96; const g=c.getContext('2d'); g.translate(48,52); TOP_DRAW[w](g,0,0,artReady('prop-'+TOP_SPR[w])?1.8:2.1); ICON[w]=c.toDataURL(); } } makeIcons();
 
 // ---------- the scenery, pre-drawn in layers ----------
 function street(g,x0,y0,w,h,far){ // the rainy street seen past the stall: navy sky, lit windows, lanterns, hydrangeas, wet stones
@@ -402,7 +417,7 @@ function kitchenBits(g){ // the scrap plate and the noodle box, on either scene
   el(g,KL.scrap.x,KL.scrap.y+4,40,12); g.fillStyle='rgba(0,0,0,.25)'; g.fill(); el(g,KL.scrap.x,KL.scrap.y,38,12); g.fillStyle='#E8E1D6'; g.fill(); el(g,KL.scrap.x,KL.scrap.y,28,8); g.fillStyle='#D6CDBF'; g.fill();
   g.fillStyle='rgba(255,244,226,.7)'; g.font='800 11px "M PLUS Rounded 1c"'; g.fillText(T('take off','拿掉'),KL.scrap.x,KL.scrap.y+26);
   // the noodle box
-  rr(g,KL.box.x-62,KL.box.y-30,124,62,8); g.fillStyle='#7A4A28'; g.fill(); rr(g,KL.box.x-56,KL.box.y-24,112,46,6); g.fillStyle='#3A2214'; g.fill();
+  if(!artReady('prop-box')){ rr(g,KL.box.x-62,KL.box.y-30,124,62,8); g.fillStyle='#7A4A28'; g.fill(); rr(g,KL.box.x-56,KL.box.y-24,112,46,6); g.fillStyle='#3A2214'; g.fill(); }
   g.fillStyle='#FFF4E2'; g.font='900 12px "M PLUS Rounded 1c"'; g.fillText('めん',KL.box.x,KL.box.y+44); }
 function drawNeko(g,x,y,s){ g.save(); g.translate(x,y); g.scale(s,s); shadow(g,0,0,24,6,.3); g.fillStyle='#FFF8EE'; rr(g,-22,-44,44,44,16); g.fill(); el(g,0,-52,22,19); g.fill();
   g.beginPath(); g.moveTo(-18,-62); g.lineTo(-14,-78); g.lineTo(-4,-66); g.closePath(); g.fill(); g.beginPath(); g.moveTo(18,-62); g.lineTo(14,-78); g.lineTo(4,-66); g.closePath(); g.fill();
@@ -441,7 +456,7 @@ function counterBits(g){ // the dish tub, the teapot's mat, the hydrangeas: on e
 // ---------- layout ----------
 // fitted to the painted kitchen (art/kitchen.webp): the basket hangs from its hook, the broth pot stands on the steel top, the pass is the hatch at the right
 const KL={ box:{x:96,y:384}, hook:{x:84,y:265}, pot:{x:324,y:300}, broth:{x:572,y:262}, ladle:{x:604,y:242},
-  slots:[{x:534,y:346},{x:694,y:346}], trays:{tamago:{x:236,y:408}, negi:{x:376,y:408}, naruto:{x:516,y:408}}, scrap:{x:752,y:418}, pass:{x:908,y:350}, dial:{x:324,y:186} };
+  slots:[{x:534,y:334},{x:694,y:334}], trays:{tamago:{x:236,y:408}, negi:{x:376,y:408}, naruto:{x:516,y:408}}, scrap:{x:752,y:418}, pass:{x:908,y:350}, dial:{x:324,y:186} };
 const CL={ pass:[{x:96,y:322},{x:196,y:322}], tub:{x:930,y:432}, teapot:{x:900,y:376}, cloth:{x:810,y:438}, queue:[{x:880,y:292},{x:950,y:300},{x:820,y:302}] };
 const seatX=n=>n===1?[560]:[470,700];
 
@@ -589,8 +604,8 @@ function drawKitchen(dt){ const g=ctx; if(!LAYER.k) LAYER.k=mkLayer(kitchenBG); 
   const drags=[...PTRS.values()], dk=k=>drags.find(d=>d.kind===k), b=K.basket;
   // the stock pot of boiling water
   const P=KL.pot; g.drawImage(glowSpr('rgba(255,110,40,.5)'),P.x-150,P.y+20,300,110);
-  drawPotBody(g,P.x,P.y,112,64,'#5E6770','#C9D1D8'); el(g,P.x,P.y,112,34); g.fillStyle='#C9D1D8'; g.fill(); el(g,P.x,P.y+2,102,28);
-  g.fillStyle=rg(g,P.x,P.y,10,110,[[0,'#E9F4F6'],[1,'#8FB0B8']]); g.fill();
+  if(!prop(g,'pot',P.x,P.y)){ drawPotBody(g,P.x,P.y,112,64,'#5E6770','#C9D1D8'); el(g,P.x,P.y,112,34); g.fillStyle='#C9D1D8'; g.fill(); el(g,P.x,P.y+2,102,28);
+  g.fillStyle=rg(g,P.x,P.y,10,110,[[0,'#E9F4F6'],[1,'#8FB0B8']]); g.fill(); }
   for(let i=0;i<14;i++){ const ph=(clock*1.8+i*.37)%1, bx=P.x+Math.cos(i*2.39)*86*((i*.13)%1+.15), by=P.y+2+Math.sin(i*2.39)*22*((i*.29)%1); g.strokeStyle=`rgba(255,255,255,${((1-ph)*.7).toFixed(2)})`; g.lineWidth=1.3; el(g,bx,by,2+ph*5,1+ph*2.2); g.stroke(); }
   if(Math.random()<dt*4) steamAt(P.x+rnd(-60,60),P.y-6,1);
   if(b.st==='pot' && !dk('basket')){ const sway=Math.sin(clock*3)*1.5; g.save(); g.beginPath(); g.rect(P.x-112,P.y-80,224,80); g.clip(); drawBasket(g,P.x-10,P.y+6+sway,true,b.done,true); g.restore();
@@ -603,15 +618,16 @@ function drawKitchen(dt){ const g=ctx; if(!LAYER.k) LAYER.k=mkLayer(kitchenBG); 
   // the basket on its hook
   if(b.st!=='pot' && !dk('basket')) drawBasket(g,KL.hook.x,KL.hook.y,b.st==='full',b.done,false);
   // the broth pot and its ladle
-  const B=KL.broth; drawPotBody(g,B.x,B.y,62,40,'#5E6770','#C9D1D8'); el(g,B.x,B.y,62,19); g.fillStyle='#C9D1D8'; g.fill(); el(g,B.x,B.y+1.5,56,15); g.fillStyle=rg(g,B.x-10,B.y-2,2,60,[[0,'#E4A453'],[1,'#9A5622']]); g.fill();
+  const B=KL.broth; if(!prop(g,'broth',B.x,B.y)){ drawPotBody(g,B.x,B.y,62,40,'#5E6770','#C9D1D8'); el(g,B.x,B.y,62,19); g.fillStyle='#C9D1D8'; g.fill(); el(g,B.x,B.y+1.5,56,15); g.fillStyle=rg(g,B.x-10,B.y-2,2,60,[[0,'#E4A453'],[1,'#9A5622']]); g.fill(); }
   if(Math.random()<dt*2.5) steamAt(B.x+rnd(-30,30),B.y-8,1);
   if(!dk('ladle')) drawLadle(g,KL.ladle.x-30,KL.ladle.y+10);
   // noodle nests in the box
-  for(let i=0;i<3;i++){ const nx=KL.box.x-34+i*34, ny=KL.box.y-4; el(g,nx,ny,15,10); g.fillStyle='#E8C25A'; g.fill(); g.strokeStyle='#F6DE8E'; g.lineWidth=1.4; for(let k=0;k<3;k++){ g.beginPath(); g.ellipse(nx,ny,11-k*3,7-k*2,k,0,TAU); g.stroke(); } }
+  if(!prop(g,'box',KL.box.x,KL.box.y)) for(let i=0;i<3;i++){ const nx=KL.box.x-34+i*34, ny=KL.box.y-4; el(g,nx,ny,15,10); g.fillStyle='#E8C25A'; g.fill(); g.strokeStyle='#F6DE8E'; g.lineWidth=1.4; for(let k=0;k<3;k++){ g.beginPath(); g.ellipse(nx,ny,11-k*3,7-k*2,k,0,TAU); g.stroke(); } }
   // the topping trays, each with its word
   for(const w of Object.keys(KL.trays)){ const t=KL.trays[w], open=trayOpen(w);
-    rr(g,t.x-58,t.y-28,116,48,10); g.fillStyle=lg(g,0,t.y-28,0,t.y+20,[[0,'#D9DFE4'],[1,'#9EA7AF']]); g.fill(); rr(g,t.x-52,t.y-23,104,38,8); g.fillStyle='#B8C0C7'; g.fill();
-    if(open){ if(w==='tamago'){ drawEgg(g,t.x-26,t.y-6,1,-.2); drawEgg(g,t.x,t.y-2,1,.1); drawEgg(g,t.x+26,t.y-6,1,.3); } else if(w==='negi'){ drawNegi(g,t.x-16,t.y-6,1.1,2); drawNegi(g,t.x+14,t.y-3,1.1,9); } else { drawNaruto(g,t.x-22,t.y-4,1,.2); drawNaruto(g,t.x+4,t.y-4,1,-.3); drawNaruto(g,t.x+28,t.y-2,.9,.4); } }
+    const ptray=prop(g,'tray',t.x,t.y-4); if(!ptray){ rr(g,t.x-58,t.y-28,116,48,10); g.fillStyle=lg(g,0,t.y-28,0,t.y+20,[[0,'#D9DFE4'],[1,'#9EA7AF']]); g.fill(); rr(g,t.x-52,t.y-23,104,38,8); g.fillStyle='#B8C0C7'; g.fill(); }
+    if(open && artReady('prop-'+TOP_SPR[w])){ TOP_DRAW[w](g,t.x-20,t.y-6,1.15); TOP_DRAW[w](g,t.x+20,t.y-2,1.15); }
+    else if(open){ if(w==='tamago'){ drawEgg(g,t.x-26,t.y-6,1,-.2); drawEgg(g,t.x,t.y-2,1,.1); drawEgg(g,t.x+26,t.y-6,1,.3); } else if(w==='negi'){ drawNegi(g,t.x-16,t.y-6,1.1,2); drawNegi(g,t.x+14,t.y-3,1.1,9); } else { drawNaruto(g,t.x-22,t.y-4,1,.2); drawNaruto(g,t.x+4,t.y-4,1,-.3); drawNaruto(g,t.x+28,t.y-2,.9,.4); } }
     else { g.fillStyle='rgba(60,40,30,.55)'; rr(g,t.x-52,t.y-23,104,38,8); g.fill(); }
     // the label card: kana always, romaji until you know it
     rr(g,t.x-40,t.y+14,80,open?(known(w)?22:32):22,7); g.fillStyle=open?'#FFF4E2':'rgba(255,244,226,.35)'; g.fill();
@@ -632,7 +648,8 @@ function drawKitchen(dt){ const g=ctx; if(!LAYER.k) LAYER.k=mkLayer(kitchenBG); 
   if(bd){ g.strokeStyle='rgba(94,211,176,.95)'; g.lineWidth=3; g.setLineDash([8,6]); if(artReady('kitchen')) rr(g,820,300,174,104,10); else rr(g,840,250,146,124,10); g.stroke(); g.setLineDash([]); }
   drawHeld(g); }
 function drawHeld(g){ for(const it of PTRS.values()){ const x=it.x, y=it.y-LIFT;
-  if(it.kind==='nest'){ el(g,x,y,16,11); g.fillStyle='#E8C25A'; g.fill(); g.strokeStyle='#F6DE8E'; g.lineWidth=1.4; for(let k=0;k<3;k++){ g.beginPath(); g.ellipse(x,y,12-k*3,8-k*2,k,0,TAU); g.stroke(); } }
+  if(it.kind==='nest' && prop(g,'nest',x,y)){}
+  else if(it.kind==='nest'){ el(g,x,y,16,11); g.fillStyle='#E8C25A'; g.fill(); g.strokeStyle='#F6DE8E'; g.lineWidth=1.4; for(let k=0;k<3;k++){ g.beginPath(); g.ellipse(x,y,12-k*3,8-k*2,k,0,TAU); g.stroke(); } }
   else if(it.kind==='basket'){ drawBasket(g,x,y,K.basket.st!=='hook',K.basket.done,false); if(it.from==='pot' && Math.random()<.35) drips(x,y+44); }
   else if(it.kind==='ladle'){ const over=it.over!=null; drawLadle(g,x,y);
     if(over){ const s=KL.slots[it.over]; g.strokeStyle='rgba(176,106,46,.85)'; g.lineWidth=5; g.lineCap='round'; g.beginPath(); g.moveTo(x-14,y+4); g.quadraticCurveTo(x-18,(y+s.y)/2,s.x,s.y); g.stroke(); } }
