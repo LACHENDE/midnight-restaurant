@@ -553,18 +553,24 @@ export function drawGuest(g, L, x, y, s, mood, o: any = {}) {
     const c = KEN.d.clips[o.clip.id],
       im = c && KEN.im[c.file];
     if (im && im.complete && im.naturalWidth) {
-      const f = kenFrame(c, o.clip.t, o.clip.loop),
-        k = (KEN_FACE() / KEN.d.facePx) * (KEN_TUNE.size[o.clip.id] || 1),
+      // the export is the still picture × refScale on one canvas: one scale for every clip, and its anchor (his jacket
+      // bottom) sits where the still picture's jacket bottom does
+      const D = KEN.d,
+        sb = D.stillBottom,
+        f = kenFrame(c, o.clip.t, o.clip.loop),
+        k = (GUEST_H / sb.h / D.refScale) * (KEN_TUNE.size[o.clip.id] || 1),
         P = KEN_TUNE.pos[o.clip.id] || [0, 0],
-        x0 = -c.ax * k + P[0],
-        y0 = 22 - c.ay * k + P[1];
-      g.drawImage(im, (f % c.cols) * c.fw, Math.floor(f / c.cols) * c.fh, c.fw, c.fh, x0, y0, c.fw * k, c.fh * k);
-      const F = c.faces[f];
+        ay = 26 - GUEST_H + (sb.b * GUEST_H) / sb.h + P[1],
+        [cx0, cy0, cx1, cy1] = c.crop,
+        x0 = (cx0 - D.anchor[0]) * k + P[0],
+        y0 = ay + (cy0 - D.anchor[1]) * k;
+      g.drawImage(im, (f % c.cols) * c.fw, Math.floor(f / c.cols) * c.fh, c.fw, c.fh, x0, y0, (cx1 - cx0) * k, (cy1 - cy0) * k);
+      const F = c.faces[f]; // [x, top under the bangs, tilt] in export pixels
       if (F) {
-        const fw = F[2] * k;
-        g.translate(x0 + F[0] * k, y0 + F[1] * k + fw * 0.25);
-        g.rotate(F[3] || 0);
-        g.scale(fw / 74, fw / 74); // turned with his head's tilt (F[3], from the beanie brim)
+        const fw = FACE.ken.w * sb.w * D.refScale * k; // his face as wide as on the still picture
+        g.translate((F[0] - D.anchor[0]) * k + P[0], ay + (F[1] - D.anchor[1]) * k + fw * 0.25);
+        g.rotate(F[2] || 0); // turned with his head's tilt (from the beanie brim)
+        g.scale(fw / 74, fw / 74);
         face(g, KEN_MOOD[o.clip.id] || (mood === 'happy' ? 'happy' : ''), { t: o.t, seed: 2 });
       }
       g.restore();

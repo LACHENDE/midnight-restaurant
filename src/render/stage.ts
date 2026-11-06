@@ -129,43 +129,9 @@ export function kenFrame(c, t, loop) {
   return c.seq[c.seq.length - 1];
 }
 // the face the game paints over each clip
-// the owner's size and position for each clip, set by eye against idle in the Ken face tuner (size × the clip's scale; pos = [x, y] in stage units)
-export const KEN_TUNE = {
-  size: {
-    pay: 1.07,
-    confirmed: 1.06,
-    confused: 1.07,
-    leave: 0.97,
-    hand: 0.96,
-    excited: 1.03,
-    itadaki: 1.07,
-    eat: 1.06,
-    yum: 0.96,
-    bye: 1.04,
-    wrong: 1.03,
-    annoyed: 1.17,
-    complain: 1.06,
-    furious: 1.09,
-    choose: 1.18,
-    wait: 1.05,
-    bill: 0.97,
-    spicy: 0.96,
-    wallet: 1.04,
-  },
-  pos: {
-    wallet: [1.5, 11.5],
-    arrive: [0, 9.5],
-    excited: [11, 14.5],
-    itadaki: [0, 5.5],
-    eat: [4, 5],
-    bye: [0, 9.5],
-    wrong: [2.5, 20.5],
-    complain: [0, 9],
-    wait: [-9, 9.5],
-    bill: [-10.5, 8.5],
-    spicy: [-2.5, 4],
-  },
-};
+// fine adjustments per clip (size ×, pos = [x, y] in stage units). Empty: the consistent-size export (every frame on one
+// 1024×1280 canvas with one anchor and scale) already sizes every clip alike; set values here only if one still needs a nudge
+export const KEN_TUNE: { size: Record<string, number>; pos: Record<string, [number, number]> } = { size: {}, pos: {} };
 export const KEN_MOOD = {
   confirmed: 'happy',
   excited: 'happy',

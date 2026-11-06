@@ -4,9 +4,9 @@ import { LINK } from './net/link';
 import { $, HUB, T, esc, store } from './core/env';
 import { C, K, NET_, cReset, counterHere, kReset, kitchenHere, meCook, meCounter } from './game/night-state';
 import { CL, KL } from './data/layout';
-import { DPR, KEN, OX, OY, S, VH, VW, ctx, cv, kenClip, toS } from './render/stage';
+import { DPR, KEN, OX, OY, S, VH, VW, ctx, cv, kenClip, toS, ART } from './render/stage';
 import { HINT, hintTick } from './game/teach';
-import { MASTER, NIGHTS } from './data/content';
+import { MASTER, NIGHTS, LOOKS } from './data/content';
 import { PHRASES, cSay, doorWant, matchPhrase, sayTick } from './game/door';
 import { RD, lobbyUI, readyUI } from './ui/menus';
 import { botCook, botCounter } from './game/bot';
@@ -31,6 +31,7 @@ import { joinRoom } from './ui/buttons';
 import { kDump, kLift, kLower, kNest, kSlide, kTakeBack, kTop, kUntop, kitchenTick } from './game/kitchen';
 import { onNet, setLink } from './net/online';
 import { toCook, toCounter } from './net/messages';
+import { drawGuest } from './render/shapes';
 
 export let last = 0;
 export function frame(now) {
@@ -129,6 +130,7 @@ export function init(): void {
     } else lobbyUI();
   }
   (window as any).__mr = {
+    art: { drawGuest, LOOKS, KEN, ART }, // the drawing, for the look checks
     role: () => G.ROLE,
     mode: () => G.MODE,
     K: () => K,
