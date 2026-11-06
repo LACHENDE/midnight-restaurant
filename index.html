@@ -295,14 +295,13 @@ function drawGuest(g,L,x,y,s,mood,o={}){ g.save(); g.translate(x,y); g.scale(s,s
   g.restore(); }
 const GUEST_H=212;   // a painted guest's height on the stage at scale 1
 // the face, drawn around the point between the eyes (units: a face 74 wide), in the owner's target style:
-// tall glossy eyes with a big shine, soft round cheeks, a small smile, and a wide open laugh when happy; blinks every few seconds
+// tall solid dark eyes, soft round cheeks, a small smile, and a wide open laugh when happy; blinks every few seconds
 function face(g,mood,o){ const ex=19, blink=((o.t||clock)+(o.seed||0))%3.7<.12, ink='#2A1810';
   for(const sx of [-1,1]){ g.fillStyle=rg(g,sx*30,13,0,12,[[0,'rgba(255,120,120,.55)'],[1,'rgba(255,120,120,0)']]); el(g,sx*30,13,12,8); g.fill(); }
   g.lineCap='round'; g.lineJoin='round'; g.strokeStyle=ink;
   if(mood==='happy' || mood==='eat'){ g.lineWidth=3.6; for(const sx of [-1,1]){ g.beginPath(); g.arc(sx*ex,3,6.5,Math.PI*1.12,Math.PI*1.88); g.stroke(); } }
   else if(blink){ g.lineWidth=3.2; for(const sx of [-1,1]){ g.beginPath(); g.moveTo(sx*ex-5,1); g.quadraticCurveTo(sx*ex,4,sx*ex+5,1); g.stroke(); } }
-  else for(const sx of [-1,1]){ const x=sx*ex; g.fillStyle=ink; el(g,x,0,6.2,8.4); g.fill();
-    g.fillStyle='#fff'; el(g,x+2.1,-3.1,2.5,2.8); g.fill(); el(g,x-1.6,2.6,1,1); g.fill(); }
+  else for(const sx of [-1,1]){ const x=sx*ex; g.fillStyle=ink; el(g,x,0,6.2,8.4); g.fill(); }
   if(mood==='hmm'){ g.lineWidth=2.6; g.beginPath(); g.moveTo(-23,-14); g.lineTo(-12,-11); g.moveTo(23,-14); g.lineTo(12,-11); g.stroke(); }
   // the mouth
   if(mood==='happy'){ g.beginPath(); g.moveTo(-9,13); g.quadraticCurveTo(0,14.5,9,13); g.quadraticCurveTo(8,26,0,26); g.quadraticCurveTo(-8,26,-9,13); g.closePath();
