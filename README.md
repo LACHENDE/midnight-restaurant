@@ -42,17 +42,36 @@ Romaji and meanings step back once you've served a word three times (tap **?** t
 
 ## Running it
 
-It's a static site with no build step:
+A TypeScript project built with [Vite](https://vitejs.dev):
 
 ```bash
-python3 -m http.server 8771    # from the folder that holds this repo, then open http://localhost:8771/midnight-restaurant/
+npm install          # once
+npm run dev          # play at http://localhost:5173, reloads as you edit
+npm run build        # type-check, then build the game into dist/
 ```
+
+Every push to `main` builds the game and publishes it to GitHub Pages (`.github/workflows/deploy.yml`).
+
+**How the code is organised (`src/`):**
+
+| Folder | What lives there |
+|---|---|
+| `core/` | helpers, the hub connection, storage, language (`T(en, zh)`) |
+| `data/` | the words, guests, nights and the counter's 接客 lines; the stage layout |
+| `game/` | the rules: kitchen, counter, the door, しばBot, teaching hints, the night's start and close; `G.ts` holds the shared state |
+| `render/` | the stage, drawing, scenery, particles, the two views; `dims.ts` is the stage size |
+| `ui/` | menus, buttons, the cards and tickets over the canvas |
+| `input/` | drags, holds, pours, rubs and taps |
+| `net/` | the online link (PeerJS) and the messages between the two phones |
+| `audio/` | the synthesized sound |
+
+The art is in `public/art/` and is copied into the build as it is.
 
 **Hosting requirements:**
 - Any static host works, served over HTTPS (or localhost), which WebRTC needs. GitHub Pages is free.
-- Online play uses the free public PeerJS signalling server (`0.peerjs.com`) and its free TURN relays (`turn.peerjs.com`). Both come from the bundled `vendor/peerjs.min.js` (MIT, see `vendor/PEERJS-LICENSE`).
+- Online play uses the free public PeerJS signalling server (`0.peerjs.com`) and its free TURN relays (`turn.peerjs.com`). Both come from the `peerjs` package (MIT).
 - Some chat apps' built-in browsers (WeChat, LINE) block WebRTC, so open the link in Safari or Chrome. In mainland China a VPN is needed for the signalling server.
-- To run your own signalling server instead, change `PFX`/`new Peer(…)` in `link.js` to point at a self-hosted `peerjs-server`.
+- To run your own signalling server instead, change `PFX`/`new Peer(…)` in `src/net/link.ts` to point at a self-hosted `peerjs-server`.
 
 **Art and sound:**
 - **Art:** every visual is drawn in code on a 2D canvas. The layers: the street (a far layer that drifts with your finger), the stall, the counter, and the objects with soft shadows.
