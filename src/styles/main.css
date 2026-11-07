@@ -88,49 +88,94 @@ input {
 }
 #say {
   position: absolute;
+  white-space: nowrap;
+  transform: translate(-50%, -100%);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  pointer-events: auto;
+  background: var(--cream);
+  border-radius: 18px;
+  padding: 8px 10px;
+  box-shadow: 0 6px 20px rgba(10, 5, 2, 0.5);
+  max-width: min(560px, calc(100vw - 20px));
+  z-index: 4;
+}
+#say::after {
+  content: '';
+  position: absolute;
   left: 50%;
-  transform: translateX(-50%);
-  bottom: calc(var(--sb) + 30px);
+  bottom: -10px;
+  margin-left: calc(-10px + var(--tail, 0px));
+  border: 10px solid transparent;
+  border-bottom: 0;
+  border-top-color: var(--cream);
+}
+#say.pop {
+  animation: sayPop 0.22s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+@keyframes sayPop {
+  from { transform: translate(-50%, -100%) scale(0.6); opacity: 0; }
+  to { transform: translate(-50%, -100%) scale(1); opacity: 1; }
+}
+#say .col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+}
+#say .ans {
+  font: 900 16px var(--ui);
+  line-height: 1.1;
+  color: var(--ink);
+}
+#say .lines {
   display: flex;
   gap: 5px;
-  align-items: stretch;
-  pointer-events: auto;
-  max-width: calc(100vw - 16px);
-  flex-wrap: nowrap;
-  justify-content: center;
 }
 #say button {
   font: 900 14px var(--ui);
-  background: var(--cream);
+  background: #fff;
   color: var(--ink);
-  border: 0;
+  border: 2px solid rgba(59, 38, 24, 0.12);
   border-radius: 11px;
-  padding: 4px 9px;
+  padding: 3px 10px;
   white-space: nowrap;
-  box-shadow: 0 3px 12px rgba(10, 5, 2, 0.45);
   cursor: pointer;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   line-height: 1.15;
-  min-height: 38px;
+  min-height: 34px;
+  justify-content: center;
+}
+#say button:active {
+  transform: scale(0.96);
 }
 #say button small {
   font: 800 9px var(--ui);
   color: var(--dim);
-  letter-spacing: 0;
   white-space: nowrap;
 }
 #say .mic {
   background: var(--mint);
+  border-color: transparent;
   color: #0e3b2e;
   font-size: 20px;
-  min-width: 46px;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  align-self: center;
+}
+#say .mic small {
+  color: #0e3b2e;
+  font-size: 8.5px;
 }
 #say .mic.on {
   background: #ff8a5b;
-  animation: rot 0s;
+}
+@media (prefers-reduced-motion: reduce) {
+  #say.pop { animation: none; }
 }
 #prog {
   left: 50%;

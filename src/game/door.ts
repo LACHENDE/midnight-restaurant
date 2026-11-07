@@ -8,6 +8,7 @@ import { cSeat, seated } from './counter';
 import { noteAct } from './teach';
 import { sparkle } from '../render/particles';
 import { toast } from '../ui/overlays';
+import { toS } from '../render/stage';
 
 // the lines (kana or kanji as staff write them, the reading for kanji, romaji, meaning) and what the microphone may hear for each
 export const PHRASES = {
@@ -208,23 +209,53 @@ export function micListen() {
     MIC = null;
   }
 }
-// the strip of lines: shown when there's something to say (a group at the door, or one leaving)
+// talking happens on the guest: a speech bubble over whoever needs you (the group at the door, or a group leaving), with the
+// microphone and three lines to choose from (the right one and two others, in an order that stays put while the bubble is open)
+const choicesFor = (want: string, seed: number): string[] => {
+  const others = PH_ORDER.filter(p => p !== want),
+    a = others[seed % others.length],
+    b = others[(seed + 2) % others.length],
+    three = [want, a, b];
+  return three.map((_, i) => three[(i + seed) % 3]);
+};
 export let sayK = '';
 export function sayTick() {
   const el_ = $('#say'),
     N = G.NIGHT && C && NIGHTS[C.n - 1];
-  const on = !!(N && N.door && meCounter() && G.NIGHT.ph === 'run' && (C.door || C.bye.length));
-  if (el_.hidden === on) el_.hidden = !on;
-  if (!on) return;
-  const k = G.LANG + ':' + PH_ORDER.map(p => (pknown(p) ? 1 : 0)).join('') + (SR ? 'm' : '');
+  let target: { x: number; y: number; want: string; seed: number } | null = null;
+  if (N && N.door && meCounter() && G.NIGHT.ph === 'run') {
+    if (C.bye.length) target = { x: C.bye[0].x, y: 150, want: 'arigatou', seed: C.bye[0].grp };
+    else if (C.door) {
+      const w = doorWant(), grp = doorGroup();
+      if (w && grp.length) target = { x: Math.min(grp[0].x, 860), y: 170, want: w, seed: C.door.grp * 7 + ['greet', 'count', 'seat', 'wait'].indexOf(C.door.step) };
+    }
+  }
+  if (el_.hidden === !!target) el_.hidden = !target;
+  if (!target) { sayK = ''; return; }
+  // keep the bubble inside the screen; the tail still points at the guest
+  const p = toS(target.x, target.y), st = el_.style, half = el_.offsetWidth / 2, pad = 10,
+    cx = Math.max(half + pad, Math.min(innerWidth - half - pad, p.x)),
+    l = Math.round(cx) + 'px', t = Math.round(Math.max(p.y, el_.offsetHeight + 16)) + 'px', tail = Math.round(p.x - cx) + 'px';
+  if (st.left !== l) st.left = l;
+  if (st.top !== t) st.top = t;
+  if (st.getPropertyValue('--tail') !== tail) st.setProperty('--tail', tail);
+  const lines = choicesFor(target.want, target.seed),
+    ans = target.want !== 'arigatou' && C.door ? C.door.ans : '',
+    k = G.LANG + ':' + ans + ':' + lines.join(',') + ':' + lines.map(p => (pknown(p) ? 1 : 0)).join('');
   if (k !== sayK) {
     sayK = k;
     el_.innerHTML =
-      PH_ORDER.map(ph => {
-        const P = PHRASES[ph];
-        return `<button type="button" data-say="${ph}">${P.k}${pknown(ph) ? '' : `<small>${P.ro}</small>`}</button>`;
-      }).join('') +
-      (SR ? `<button type="button" class="mic" data-mic="1" aria-label="${T('Say it', '说出来')}">🎤</button>` : '');
+      (SR ? `<button type="button" class="mic" data-mic="1" aria-label="${T('Say it', '说出来')}">🎤<small>${T('tap & say', '点一下说')}</small></button>` : '') +
+      // the guest's reply (「ふたりです」) sits at the top of the bubble
+      `<div class="col">${ans ? `<div class="ans">「${ans}」</div>` : ''}<div class="lines">${lines
+        .map(ph => {
+          const P = PHRASES[ph];
+          return `<button type="button" data-say="${ph}">${P.k}${pknown(ph) ? '' : `<small>${P.ro}</small>`}</button>`;
+        })
+        .join('')}</div></div>`;
+    el_.classList.remove('pop');
+    void el_.offsetWidth;
+    el_.classList.add('pop');
   }
 }
 export const doorHint = w =>

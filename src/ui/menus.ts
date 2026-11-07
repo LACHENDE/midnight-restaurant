@@ -61,6 +61,7 @@ export function lobbyUI(msg?) {
     ${msg ? `<p class="err">${esc(msg)}</p>` : ''}
     ${s ? `<div class="row"><button class="btn" data-a="rejoin">${T(`Rejoin room ${esc(s.code)}`, `回到房间 ${esc(s.code)}`)}</button></div>` : ''}
     <div class="row"><button class="btn${s ? ' mint' : ''}" data-a="create">${T('Play together: open a room', '一起玩：开房间')}</button><input class="codein" id="codeIn" maxlength="4" placeholder="CODE" autocomplete="off" aria-label="${T('Room code', '房间码')}"><button class="btn ghost" data-a="join">${T('Join', '加入')}</button></div>
+    <div class="row"><a class="btn mint" href="./floor.html" style="text-decoration:none">${T('New: run the floor (top-down)', '新：俯视店面')}</a></div>
     <div class="row"><button class="btn ghost" data-a="practice">${T('Practice alone with しばBot', '和 しばBot 单人练习')}</button></div>
     <p class="note">${T('Online co-op: two phones, anywhere (a room code or an invite link). Practice: you take one role, しばBot the other.', '联机合作：两部手机，在哪都行（房间码或邀请链接）。练习：你一个角色，しばBot 另一个。')}</p>`);
 }

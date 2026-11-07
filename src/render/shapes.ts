@@ -567,7 +567,7 @@ export function drawGuest(g, L, x, y, s, mood, o: any = {}) {
       g.drawImage(im, (f % c.cols) * c.fw, Math.floor(f / c.cols) * c.fh, c.fw, c.fh, x0, y0, (cx1 - cx0) * k, (cy1 - cy0) * k);
       const F = c.faces[f]; // [x, top under the bangs, tilt] in export pixels
       if (F) {
-        const fw = FACE.ken.w * sb.w * D.refScale * k; // his face as wide as on the still picture
+        const fw = FACE_W; // the same face size as every other guest
         g.translate((F[0] - D.anchor[0]) * k + P[0], ay + (F[1] - D.anchor[1]) * k + fw * 0.25);
         g.rotate(F[2] || 0); // turned with his head's tilt (from the beanie brim)
         g.scale(fw / 74, fw / 74);
@@ -585,7 +585,7 @@ export function drawGuest(g, L, x, y, s, mood, o: any = {}) {
       W = (H * im.naturalWidth) / im.naturalHeight,
       top = 26 - H;
     g.drawImage(im, -W / 2, top, W, H);
-    const fw = F.w * W;
+    const fw = FACE_W; // one face size for everyone (the pictures' own face widths differ a little)
     g.translate(-W / 2 + F.x * W, top + F.t * H + fw * 0.25);
     g.scale(fw / 74, fw / 74);
     face(g, mood, { t: o.t, seed: L.id.length * 0.61 });
@@ -623,6 +623,8 @@ export function drawGuest(g, L, x, y, s, mood, o: any = {}) {
   g.restore();
 }
 export const GUEST_H = 212;
+// every guest's drawn face (eyes, cheeks, mouth) is this wide on the stage at scale 1: the size of most guests' painted faces
+export const FACE_W = 71;
 // a painted guest's height on the stage at scale 1
 // Ken's face width on the stage in his still picture: his clips are scaled to match it
 export const KEN_FACE = () =>

@@ -425,10 +425,7 @@ export function drawCounter(dt) {
     g.stroke();
   });
   // the group's leader answers how many they are
-  if (C.door && C.door.ans) {
-    const G = doorGroup();
-    if (G.length) bubble(g, Math.min(G[0].x, 880), 196, C.door.ans);
-  }
+  // the group's reply to 何名様ですか shows inside the talking bubble (door.ts sayTick)
   // seats: the guests sit behind the counter
   C.seats.forEach(s => {
     const gg = s.g;
