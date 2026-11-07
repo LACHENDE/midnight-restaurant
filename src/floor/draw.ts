@@ -8,6 +8,13 @@ const load = (k: string, src: string) => { const im = new Image(); im.onload = (
 for (const w of WHO) { load(`guest-${w}`, `art/guest-${w}.webp`); load(`ask-${w}`, `art/ask-${w}.webp`); }
 for (const p of ['bowl', 'bowl-full', 'egg', 'negi', 'naruto', 'pot', 'box', 'nest', 'tray', 'ladle']) load(p, `art/prop-${p}.webp`);
 const ready = (k: string) => !!(IMG[k]?.complete && IMG[k].naturalWidth);
+// the tall shop rendered in Blender (blender/tall_shop.py): the room at 2 px per unit, tables and stools apart so they sort
+// with the people. Anchors are the floor centre, in game units (sprites.json from the render).
+for (const k of ['room-tall', 'table40', 'table50', 'stool']) load(k, `art/floor/${k}.webp`);
+const SPR: Record<string, { w: number; h: number; ax: number; ay: number }> = { table40: { w: 104, h: 89, ax: 52, ay: 65 }, table50: { w: 124, h: 96, ax: 62, ay: 72 }, stool: { w: 48, h: 40, ax: 24, ay: 28 } };
+const art3d = () => ROOM.id === 'tall' && ready('room-tall');
+/** how far things on a station are lifted to sit on the rendered counters */
+const lift = (kind: string) => !art3d() ? 0 : kind === 'pot' ? 38 : kind === 'pass' ? 30 : kind === 'trash' ? 0 : 28;
 type G2 = CanvasRenderingContext2D;
 const TAU = Math.PI * 2;
 const el = (g: G2, x: number, y: number, rx: number, ry: number) => { g.beginPath(); g.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU); };
@@ -86,7 +93,7 @@ let floorLayer: HTMLCanvasElement | null = null, layerOf = '';
 function room(): HTMLCanvasElement {
   if (floorLayer && layerOf === ROOM.id) return floorLayer;
   const c = document.createElement('canvas'); c.width = WORLD.w * 2; c.height = WORLD.h * 2; const g = c.getContext('2d')!; g.scale(2, 2);
-  if (ROOM.id === 'tall') roomTall(g); else roomWide(g);
+  if (ROOM.id === 'tall') { if (art3d()) roomArt(g); else roomTall(g); } else roomWide(g);
   layerOf = ROOM.id; return (floorLayer = c);
 }
 function roomWide(g: G2) {
@@ -262,9 +269,29 @@ function roomTall(g: G2) {
   g.fillStyle = '#FFD58A'; rr(g, lx - 10, ly - 102, 20, 20, 2); g.fill();
   g.fillStyle = '#6F6C67'; g.beginPath(); g.moveTo(lx - 34, ly - 108); g.lineTo(lx, ly - 132); g.lineTo(lx + 34, ly - 108); g.closePath(); g.fill(); g.fillStyle = '#8D8A85'; el(g, lx, ly - 134, 6, 6); g.fill();
 }
+/** the rendered room, plus the words the render leaves to the game (topping names, めん) */
+function roomArt(g: G2) {
+  g.drawImage(IMG['room-tall'], 0, 0, WORLD.w, WORLD.h);
+  g.textAlign = 'center';
+  for (const s of STATIONS) {
+    const cx = (s.x0 + s.x1) / 2;
+    if (s.kind === 'tamago' || s.kind === 'negi' || s.kind === 'naruto') {
+      const y = 534 - 34 + 4; g.fillStyle = 'rgba(255,244,226,.94)'; rr(g, cx - 19, y - 9, 38, 13, 5); g.fill();
+      g.fillStyle = '#3B2618'; g.font = `900 9.5px ${FONT}`; g.fillText(s.kind === 'tamago' ? 'たまご' : s.kind === 'negi' ? 'ねぎ' : 'なると', cx, y + 1);
+    } else if (s.kind === 'noodles') { g.fillStyle = 'rgba(255,244,226,.94)'; rr(g, cx - 16, 318, 32, 15, 5); g.fill(); g.fillStyle = '#3B2618'; g.font = `900 11px ${FONT}`; g.fillText('めん', cx, 330); }
+  }
+}
+function sprite(g: G2, k: string, x: number, y: number) { const m = SPR[k]; g.drawImage(IMG[k], x - m.ax, y - m.ay, m.w, m.h); }
 /** a table in the tall shop, drawn in among the people: whoever sits behind it is hidden from the waist down */
 function tableTall(g: G2, tb: Table, dirty: number) {
-  const ry = tb.r * 0.62, ty = tb.y - 6;
+  const ry = tb.r * 0.62, ty = tb.y - 6, k = `table${tb.r}`;
+  if (art3d() && ready(k) && SPR[k]) {
+    g.fillStyle = 'rgba(40,20,8,.28)'; el(g, tb.x + 6, tb.y + 26, tb.r * 0.8, tb.r * 0.3); g.fill();
+    sprite(g, k, tb.x, tb.y + 26);
+    for (let i = 0; i < dirty; i++) { const a = (i / Math.max(1, dirty)) * TAU; item(g, tb.x + Math.cos(a) * tb.r * 0.42, ty + Math.sin(a) * ry * 0.4 + 2, { k: 'dishes', n: 1 }, 0.9); }
+    g.fillStyle = 'rgba(255,244,226,.92)'; el(g, tb.x, ty - ry + 9, 11, 8.5); g.fill(); g.fillStyle = '#3B2618'; g.font = `900 12px ${FONT}`; g.textAlign = 'center'; g.fillText(String(tb.id), tb.x, ty - ry + 13.5);
+    return;
+  }
   g.fillStyle = 'rgba(40,20,8,.26)'; el(g, tb.x + 5, tb.y + 26, tb.r * 0.85, tb.r * 0.36); g.fill();
   g.fillStyle = '#3E2212'; g.fillRect(tb.x - 6, ty + ry - 6, 12, 30); el(g, tb.x, tb.y + 26, 17, 5.5); g.fill();
   g.fillStyle = '#8A5531'; el(g, tb.x, ty + 8, tb.r, ry); g.fill();
@@ -274,6 +301,7 @@ function tableTall(g: G2, tb: Table, dirty: number) {
   g.fillStyle = 'rgba(255,244,226,.92)'; el(g, tb.x, ty - ry + 9, 11, 8.5); g.fill(); g.fillStyle = '#3B2618'; g.font = `900 12px ${FONT}`; g.textAlign = 'center'; g.fillText(String(tb.id), tb.x, ty - ry + 13.5);
 }
 function stool(g: G2, x: number, y: number) {
+  if (art3d() && ready('stool')) { g.fillStyle = 'rgba(40,20,8,.24)'; el(g, x + 2, y + 2, 12, 4.5); g.fill(); sprite(g, 'stool', x, y + 1); return; }
   g.fillStyle = 'rgba(40,20,8,.24)'; el(g, x + 2, y + 3, 13, 5); g.fill();
   g.fillStyle = '#4A2C18'; g.fillRect(x - 10, y - 12, 20, 13); el(g, x, y + 1, 10, 4); g.fill();
   g.fillStyle = '#8A5531'; el(g, x, y - 12, 12, 6); g.fill(); g.fillStyle = 'rgba(255,220,180,.25)'; el(g, x - 2, y - 13, 7, 3); g.fill();
@@ -298,7 +326,7 @@ export function draw(g: G2, v: Snap, me: number, target: Act | null, dt: number,
   g.drawImage(room(), 0, 0, WORLD.w, WORLD.h);
   // the pots, with a doneness ring: grey while raw, green when ready, amber when soft, red when burnt
   STATIONS.filter(s => s.kind === 'pot').forEach((s, i) => {
-    const pot = v.pots[i], cx = (s.x0 + s.x1) / 2, cy = (s.y0 + s.y1) / 2, d = doneness(pot);
+    const pot = v.pots[i], cx = (s.x0 + s.x1) / 2, cy = (s.y0 + s.y1) / 2 - lift('pot'), d = doneness(pot);
     if (tall && pot.st === 'boil') for (let k = -2; k <= 2; k++) { g.fillStyle = `rgba(90,170,255,${(0.55 + 0.3 * Math.sin(t * 20 + k * 2)).toFixed(2)})`; el(g, cx + k * 8, cy + 14, 3, 5 + Math.sin(t * 17 + k) * 1.5); g.fill(); }
     if (!pic(g, 'pot', cx, cy, 50)) { g.fillStyle = '#7A838C'; el(g, cx, cy, 22, 22); g.fill(); }
     if (pot.st !== 'boil') return;
@@ -306,7 +334,7 @@ export function draw(g: G2, v: Snap, me: number, target: Act | null, dt: number,
     for (let k = 0; k < 4; k++) { const ph = (t * 1.6 + k * 0.27) % 1; g.fillStyle = `rgba(255,255,255,${(0.7 * (1 - ph)).toFixed(2)})`; el(g, cx - 12 + k * 8, cy - 10 - ph * 22, 4 + ph * 4, 3 + ph * 3); g.fill(); }
     if (!tall) potRing(g, cx + ROOM.ring[0], cy + ROOM.ring[1], pot, t); // the tall shop draws it over the cook, below
   });
-  for (const s of STATIONS) { const it = v.slots[s.id]; if (it) item(g, (s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2 - 4, it, s.kind === 'pass' ? 0.62 : 0.8); }
+  for (const s of STATIONS) { const it = v.slots[s.id]; if (it) item(g, (s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2 - 4 - lift(s.kind), it, s.kind === 'pass' ? 0.62 : 0.8); }
   if (!tall) for (const tb of TABLES) { const n = v.dirty[tb.id] || 0; for (let i = 0; i < n; i++) { const a = (i / Math.max(1, n)) * TAU; item(g, tb.x + Math.cos(a) * tb.r * 0.45, tb.y + Math.sin(a) * tb.r * 0.3, { k: 'dishes', n: 1 }); } }
   if (!tall) marks(g, v, me, target, t);
   // everyone, back to front (in the tall shop the tables and their stools too)
@@ -326,7 +354,7 @@ export function draw(g: G2, v: Snap, me: number, target: Act | null, dt: number,
   });
   list.sort((a, b) => a.y - b.y).forEach(d => d.f());
   if (tall) {
-    STATIONS.filter(s => s.kind === 'pot').forEach((s, i) => { if (v.pots[i].st === 'boil') potRing(g, (s.x0 + s.x1) / 2 + ROOM.ring[0], (s.y0 + s.y1) / 2 + ROOM.ring[1], v.pots[i], t); });
+    STATIONS.filter(s => s.kind === 'pot').forEach((s, i) => { if (v.pots[i].st === 'boil') potRing(g, (s.x0 + s.x1) / 2 + ROOM.ring[0], (s.y0 + s.y1) / 2 + ROOM.ring[1] - lift('pot'), v.pots[i], t); });
     marks(g, v, me, target, t);
   }
   groupMarks(g, v, me, t, topSafe);
