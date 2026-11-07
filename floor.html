@@ -10,14 +10,19 @@
 </head>
 <body>
 <canvas id="fcv"></canvas>
-<div class="fhud">
-  <div class="chip" id="fyen">¥0</div>
-  <div class="chip" id="fhint" hidden></div>
-  <a class="chip back" href="./">← Midnight Restaurant</a>
+<div id="hud" hidden>
+  <div id="tl"><div id="clock">3:00</div><div id="stars"><div id="starfill"></div><span>★</span><span>★</span><span>★</span></div><div id="yen">¥0</div></div>
+  <div id="rail"></div>
+  <div id="tr"><div id="combo"></div><div id="walks"></div><button type="button" id="mute" aria-label="Sound">♪</button></div>
+  <div id="hint" hidden></div>
+  <div id="banner" hidden></div>
+  <div id="stick" hidden><i></i></div>
+  <div id="fan" hidden></div>
+  <button type="button" id="act" class="off"><b>　</b><small></small></button>
 </div>
-<div id="say" hidden></div>
-<div class="fpanel" id="fpanel"></div>
-<div class="rotate">横にしてね</div>
+<div id="panel" hidden></div>
+<div id="net" hidden><span class="spin"></span>Connection lost. Finding your partner… · 连接中断，正在重连…</div>
+<div class="rotate">横にしてね<small>turn your phone sideways</small></div>
 <script type="module" src="/src/floor/main.ts"></script>
 </body>
 </html>

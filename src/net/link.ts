@@ -4,12 +4,14 @@
 // Reliable messages are numbered (q = 1, 2, 3…) and kept until the partner's heartbeat acknowledges them, so nothing is lost across a reconnect.
 import { Peer } from 'peerjs';
 
-const PFX = 'kotoba-mres-';
+// the room namespace: the side view and the floor mode each have their own, so a code never joins the wrong game
+let PFX = 'kotoba-mres-';
+let NS = 'mres_';
 const now = () => performance.now();
 const LS = {
   get(k, d) {
     try {
-      const v = localStorage.getItem('mres_' + k);
+      const v = localStorage.getItem(NS + k);
       return v == null ? d : JSON.parse(v);
     } catch (e) {
       return d;
@@ -17,12 +19,12 @@ const LS = {
   },
   set(k, v) {
     try {
-      localStorage.setItem('mres_' + k, JSON.stringify(v));
+      localStorage.setItem(NS + k, JSON.stringify(v));
     } catch (e) {}
   },
   del(k) {
     try {
-      localStorage.removeItem('mres_' + k);
+      localStorage.removeItem(NS + k);
     } catch (e) {}
   },
 };
@@ -300,6 +302,10 @@ function leave(quiet) {
   LS.del('sess');
 }
 export const LINK: any = {
+  setSpace: (pfx: string, ns: string) => {
+    PFX = pfx;
+    NS = ns;
+  },
   host: (code, rejoin) => start('h', code, rejoin),
   join: (code, rejoin) => start('g', code.toUpperCase(), rejoin),
   leave,
