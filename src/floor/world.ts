@@ -1,23 +1,12 @@
 // The restaurant as obstacles: walls, counters, the divider, the bench and the tables.
 // The waiters slide along them; guests and しばBot walk A* paths on a 20-unit grid.
-import { WORLD, TABLES, STATIONS, COUNTERS, DIVIDER, BENCH } from './data';
+import { WORLD, TABLES, STATIONS, COUNTERS, DIVIDER, ROOM, applyRoom, type RoomId, type Box, type Pt } from './data';
 
-export interface Pt { x: number; y: number }
-interface Rect { x0: number; y0: number; x1: number; y1: number }
-const RECTS: Rect[] = [
-  { x0: -60, y0: -60, x1: WORLD.w + 60, y1: 30 }, // back wall
-  { x0: -60, y0: -60, x1: 26, y1: 760 }, // left wall
-  { x0: WORLD.w, y0: -60, x1: WORLD.w + 60, y1: 760 }, // right wall
-  { x0: -60, y0: 560, x1: 50, y1: 760 }, // the front wall, with the door between x 50 and 150
-  { x0: 150, y0: 560, x1: WORLD.w + 60, y1: 760 },
-  { x0: DIVIDER.x0, y0: 0, x1: DIVIDER.x1, y1: DIVIDER.gapY },
-  { x0: BENCH.x - 26, y0: BENCH.y - 70, x1: BENCH.x - 8, y1: BENCH.y + 70 },
-  ...COUNTERS,
-  ...STATIONS.map(s => ({ x0: s.x0, y0: s.y0, x1: s.x1, y1: s.y1 })),
-];
+export type { Pt };
+let RECTS: Box[] = [];
 /** is (x, y) inside something, with a margin of pad? Waiters also stay indoors. */
 export function blocked(x: number, y: number, pad: number, indoors = false): boolean {
-  if (indoors && y > 548) return true;
+  if (indoors && (y - ROOM.exit.y) * ROOM.exit.dir > 0) return true;
   for (const r of RECTS) if (x > r.x0 - pad && x < r.x1 + pad && y > r.y0 - pad && y < r.y1 + pad) return true;
   for (const t of TABLES) { const rx = t.r + pad, ry = t.r * 0.8 + pad; if (((x - t.x) / rx) ** 2 + ((y - t.y) / ry) ** 2 < 1) return true; }
   return false;
@@ -28,21 +17,29 @@ export function slide(p: Pt, dx: number, dy: number, pad = 13) {
   if (!blocked(p.x, p.y + dy, pad, true)) p.y += dy;
 }
 /** distance from a point to a station's counter */
-export function distRect(p: Pt, r: Rect): number {
+export function distRect(p: Pt, r: Box): number {
   const dx = Math.max(r.x0 - p.x, 0, p.x - r.x1), dy = Math.max(r.y0 - p.y, 0, p.y - r.y1);
   return Math.hypot(dx, dy);
 }
 
 // ---------- paths for guests and しばBot ----------
-const CELL = 20, GW = Math.ceil(WORLD.w / CELL), GH = Math.ceil(720 / CELL);
-const free = new Uint8Array(GW * GH);
-for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) free[y * GW + x] = blocked((x + 0.5) * CELL, (y + 0.5) * CELL, 10) ? 0 : 1;
+const CELL = 20;
+let GW = 0, GH = 0, GY0 = 0, free = new Uint8Array(0);
+/** play in this shop: its walls, counters and tables become the obstacles, and the paths' grid is rebuilt */
+export function useRoom(id: RoomId) {
+  applyRoom(id);
+  RECTS = [...ROOM.walls, { ...DIVIDER }, { ...ROOM.bench }, ...COUNTERS, ...STATIONS.map(s => ({ x0: s.x0, y0: s.y0, x1: s.x1, y1: s.y1 }))];
+  GY0 = ROOM.gridY[0]; GW = Math.ceil(WORLD.w / CELL); GH = Math.ceil((ROOM.gridY[1] - GY0) / CELL); free = new Uint8Array(GW * GH);
+  for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) free[y * GW + x] = blocked((x + 0.5) * CELL, GY0 + (y + 0.5) * CELL, 10) ? 0 : 1;
+}
+useRoom('wide');
 const ok = (cx: number, cy: number) => cx >= 0 && cy >= 0 && cx < GW && cy < GH && free[cy * GW + cx] === 1;
-const cellOf = (p: Pt) => ({ cx: Math.max(0, Math.min(GW - 1, Math.floor(p.x / CELL))), cy: Math.max(0, Math.min(GH - 1, Math.floor(p.y / CELL))) });
+const cellOf = (p: Pt) => ({ cx: Math.max(0, Math.min(GW - 1, Math.floor(p.x / CELL))), cy: Math.max(0, Math.min(GH - 1, Math.floor((p.y - GY0) / CELL))) });
+const centre = (cx: number, cy: number): Pt => ({ x: (cx + 0.5) * CELL, y: GY0 + (cy + 0.5) * CELL });
 export function nearestFree(p: Pt): Pt {
   const { cx, cy } = cellOf(p);
   if (ok(cx, cy)) return p;
-  for (let r = 1; r < 14; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (ok(cx + dx, cy + dy)) return { x: (cx + dx + 0.5) * CELL, y: (cy + dy + 0.5) * CELL };
+  for (let r = 1; r < 14; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (ok(cx + dx, cy + dy)) return centre(cx + dx, cy + dy);
   return p;
 }
 function clearLine(a: Pt, b: Pt): boolean {
@@ -66,7 +63,7 @@ export function findPath(a: Pt, b: Pt): Pt[] {
     }
   }
   if (from[gi] < 0) return [b];
-  const cells: Pt[] = []; for (let i = gi; i !== si && i >= 0; i = from[i]) cells.unshift({ x: ((i % GW) + 0.5) * CELL, y: (((i / GW) | 0) + 0.5) * CELL });
+  const cells: Pt[] = []; for (let i = gi; i !== si && i >= 0; i = from[i]) cells.unshift(centre(i % GW, (i / GW) | 0));
   const out: Pt[] = []; let at = a;
   for (let i = 0; i < cells.length; i++) { const nxt = cells[i + 1] || b; if (!clearLine(at, nxt)) { out.push(cells[i]); at = cells[i]; } }
   out.push(b); return out;

@@ -92,6 +92,7 @@ export function readyCard(mode: 'solo' | 'host' | 'guest', me: boolean, them: bo
   const partner = mode === 'solo' ? T('しばBot runs the kitchen. Call your orders to it with 📣.', 'しばBot 负责厨房。用 📣 把订单喊给它。') : them ? T('Your partner is ready.', '搭档已准备好。') : T('Waiting for your partner to be ready…', '等待搭档准备…');
   panel(`<div class="kicker">${T('Tonight · 3 minutes', '今晚 · 3 分钟')}</div><h2>${mode === 'guest' ? T('You wear the green apron', '你穿绿色围裙') : T('You wear the navy apron', '你穿深蓝色围裙')}</h2>${HOWTO()}
     <p class="note">${partner}${best ? ` · ${T('Best', '最高')} ${'★'.repeat(best)}` : ''}</p>
+    <p class="note">📱 ${mode === 'guest' ? T("Your partner's phone picks the shop: upright is the tall shop, sideways the wide one.", '店面由搭档的手机决定：竖着是竖版店，横着是横版店。') : T('Hold your phone upright for the tall shop, or sideways for the wide one.', '竖着拿手机是竖版店，横着拿是横版店。')}</p>
     <div class="row"><button type="button" class="btn mint" data-a="ready"${me ? ' disabled' : ''}>${me ? T('Ready ✓', '已准备 ✓') : T('Ready', '准备好了')}</button><button type="button" class="btn ghost" data-a="lobby">${T('Leave', '离开')}</button></div>`);
 }
 export function resultsCard(v: Snap, best: number, mode: string) {

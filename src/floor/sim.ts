@@ -2,7 +2,7 @@
 // orders and tickets, the kitchen (noodles → pot → bowl → topping → pass), serving, the goodbye, dirty tables,
 // patience and walkouts, rush hour, tips and combos, the food critic and the VIP. The partner's phone gets snapshots.
 import { Walker, nearestFree, distRect } from './world';
-import { TABLES, STATIONS, chairsOf, DOOR, QUEUE, OUTSIDE, BENCH, WHO, COUNT, PIECES, DISHES, DISH_IDS, COOK, SHIFT, type Who, type Dish, type Station, type Table } from './data';
+import { TABLES, STATIONS, chairsOf, OUTSIDE, ROOM, WHO, COUNT, PIECES, DISHES, DISH_IDS, COOK, SHIFT, type Who, type Dish, type Station, type Table } from './data';
 
 export type Item = { k: 'noodles' } | { k: 'bowl'; noodles: '' | 'perfect' | 'ok'; tops: Dish[] } | { k: 'dishes'; n: number };
 export interface Player { x: number; y: number; face: number; moving: boolean; hold: Item | null; name: string; bot: boolean }
@@ -24,7 +24,7 @@ export interface World {
 
 const fresh = (names: string[], bot: boolean): World => ({
   t: 0, phase: 'play', yen: 0, combo: 0, bestCombo: 0, walkouts: 0, ok: 0, bad: 0, served: 0,
-  P: names.map((name, i) => ({ x: i ? 820 : 560, y: i ? 400 : 470, face: 1, moving: false, hold: null, name, bot: bot && i === 1 })),
+  P: names.map((name, i) => ({ x: ROOM.start[i ? 1 : 0].x, y: ROOM.start[i ? 1 : 0].y, face: 1, moving: false, hold: null, name, bot: bot && i === 1 })),
   groups: [], tickets: [], pots: [{ st: 'empty', t: 0 }, { st: 'empty', t: 0 }], slots: Object.fromEntries(STATIONS.filter(s => s.kind === 'island' || s.kind === 'pass').map(s => [s.id, null])),
   dirty: {}, floats: [], ev: [], evN: 0, rush: false, banner: '', bannerT: 0, shake: 0,
 });
@@ -153,7 +153,7 @@ export function say(pi: number, line: string): boolean {
   W.ok++; g.mood = 'happy'; g.moodT = 1.2; ev('good');
   if (line === 'irasshai') { g.step = 'count'; g.pat = Math.min(1, g.pat + 0.3); }
   else if (line === 'nanmei') { g.step = 'seat'; g.reply = COUNT[g.size]; g.replyT = 4; g.pat = Math.min(1, g.pat + 0.3); }
-  else if (line === 'shoushou') { g.st = 'wait'; g.pat = 1; g.reply = ''; g.guests.forEach((q, i) => q.w!.goTo({ x: BENCH.x + 8, y: BENCH.y - 54 + i * 36 })); }
+  else if (line === 'shoushou') { g.st = 'wait'; g.pat = 1; g.reply = ''; g.guests.forEach((q, i) => q.w!.goTo(ROOM.benchSpot(i))); }
   else if (line === 'douzo') { g.st = 'follow'; g.follow = pi; g.reply = ''; g.pat = 1; }
   else if (line === 'gochuumon') takeOrder(g, pi);
   else if (line === 'omatase') serve(g, pi);
@@ -232,7 +232,7 @@ export function tick(dt: number) {
   const atDoor = W.groups.filter(g => g.st === 'queue' || g.st === 'arrive' || g.st === 'door').length;
   if (spawnT <= 0 && atDoor < 2) { spawn(); spawnT = W.rush ? 6.5 : 13 - 4 * Math.min(1, W.t / SHIFT.rush); }
   // the front of the queue steps up to the door
-  if (!W.groups.some(g => g.st === 'arrive' || g.st === 'door')) { const q = W.groups.find(g => g.st === 'queue'); if (q) { q.st = 'arrive'; q.t = 0; q.guests.forEach((g, i) => g.w!.goTo({ x: DOOR.x + (i % 2) * 34 - 12, y: DOOR.y - Math.floor(i / 2) * 32 + 8 })); } }
+  if (!W.groups.some(g => g.st === 'arrive' || g.st === 'door')) { const q = W.groups.find(g => g.st === 'queue'); if (q) { q.st = 'arrive'; q.t = 0; q.guests.forEach((g, i) => g.w!.goTo(ROOM.doorSpot(i))); } }
   for (const g of W.groups) {
     g.t += dt; g.moodT = Math.max(0, g.moodT - dt); if (!g.moodT) g.mood = '';
     g.replyT = Math.max(0, g.replyT - dt); if (!g.replyT) g.reply = '';
@@ -240,7 +240,7 @@ export function tick(dt: number) {
     const rate = (DRAIN[g.st] || 0) * (g.kind === 'critic' ? 1.6 : g.kind === 'vip' ? 1.3 : 1) * (W.rush ? 1.2 : 1);
     if (rate) { g.pat -= rate * dt; if (g.pat <= 0) { walkout(g); if (W.phase !== 'play') return; continue; } }
     switch (g.st) {
-      case 'queue': if (g.guests.every(q => q.w!.idle) && g.t < 0.1) g.guests.forEach((q, i) => q.w!.goTo({ x: QUEUE.x + 90 + i * 26, y: QUEUE.y - 70 })); break;
+      case 'queue': if (g.guests.every(q => q.w!.idle) && g.t < 0.1) g.guests.forEach((q, i) => q.w!.goTo(ROOM.queueSpot(i))); break;
       case 'arrive': if (g.guests.every(q => q.w!.idle)) { g.st = 'door'; g.t = 0; } break;
       case 'follow': { // trail behind your waiter
         const p = W.P[g.follow]; if (!p) { g.st = 'wait'; break; }
@@ -248,7 +248,7 @@ export function tick(dt: number) {
         break;
       }
       case 'seating': if (g.guests.every(q => q.w!.idle) && g.t > 2) { g.st = 'ask'; g.t = 0; g.pat = 1; } break;
-      case 'eat': if (g.t > 6) { W.dirty[g.table] = g.size; g.st = 'leave'; g.t = 0; g.reply = 'ごちそうさま！'; g.replyT = 2; g.guests.forEach((q, i) => q.w!.goTo({ x: DOOR.x + 40 + (i % 2) * 34, y: DOOR.y - 50 - Math.floor(i / 2) * 32 })); g.table = 0; } break;
+      case 'eat': if (g.t > 6) { W.dirty[g.table] = g.size; g.st = 'leave'; g.t = 0; g.reply = 'ごちそうさま！'; g.replyT = 2; g.guests.forEach((q, i) => q.w!.goTo(ROOM.byeSpot(i))); g.table = 0; } break;
       case 'leave': if (g.guests.every(q => q.w!.idle)) { g.st = 'bye'; g.t = 0; } break;
       case 'bye': if (g.t > 6) leave(g, 'out'); break;
     }

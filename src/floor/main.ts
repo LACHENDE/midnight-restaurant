@@ -1,11 +1,11 @@
 // まよなか屋 · floor: a three-minute shift for two, top-down. One phone (the host) runs the shift; the partner's phone moves
 // its own waiter, sends its button presses and lines, and draws the host's snapshots. In practice しばBot is the partner.
 import './floor.css';
-import { WORLD, SHIFT, PHRASES } from './data';
+import { WORLD, SHIFT, PHRASES, ROOM, type RoomId } from './data';
 import { W, reset, tick, act, say, call, snapshot, actionTarget, talkTarget, wants, starsFor, type Snap } from './sim';
-import { slide } from './world';
+import { slide, useRoom } from './world';
 import { draw } from './draw';
-import { STICK, bindInput } from './input';
+import { STICK, bindInput, restStick } from './input';
 import { hudTick, panel, lobbyCard, roomCard, waitCard, readyCard, resultsCard, choices, learned, T, $ } from './hud';
 import { wake, sfx, music, isMuted, setMuted } from './audio';
 import { botTick, botReset } from './bot';
@@ -20,7 +20,10 @@ const local = { x: 0, y: 0, face: 1, moving: false }; // the partner phone's own
 // ---------- canvas ----------
 const cv = $('fcv') as HTMLCanvasElement, g = cv.getContext('2d')!;
 let scale = 1, ox = 0, oy = 0, dpr = 1;
-function resize() { dpr = Math.min(2, devicePixelRatio || 1); cv.width = Math.round(innerWidth * dpr); cv.height = Math.round(innerHeight * dpr); scale = Math.min(innerWidth / WORLD.w, innerHeight / WORLD.h); ox = (innerWidth - WORLD.w * scale) / 2; oy = (innerHeight - WORLD.h * scale) / 2; }
+function resize() { dpr = Math.min(2, devicePixelRatio || 1); cv.width = Math.round(innerWidth * dpr); cv.height = Math.round(innerHeight * dpr); scale = Math.min(innerWidth / WORLD.w, innerHeight / WORLD.h); ox = (innerWidth - WORLD.w * scale) / 2; oy = (innerHeight - WORLD.h * scale) / 2; measureHud(); }
+/** how far down the HUD reaches, in world units: a reply bubble that would go under it hangs below its guests instead */
+let topSafe = -1e9;
+function measureHud() { const h = document.getElementById('hud'); if (!h || h.hidden) return; const px = $('tl').getBoundingClientRect().top + (innerHeight > innerWidth ? 116 : 70); topSafe = (px - oy) / scale; }
 addEventListener('resize', resize); resize();
 
 // ---------- what this phone does when you press, say or call ----------
@@ -53,7 +56,7 @@ function listen() {
     r.start();
   } catch { mic = null; }
 }
-bindInput(cv, { act: doAct, line: doLine, mic: listen, active: () => screen === 'play' });
+bindInput(cv, { act: doAct, line: doLine, mic: listen, active: () => screen === 'play', tall: () => ROOM.id === 'tall' });
 $('act').addEventListener('pointerdown', e => { e.preventDefault(); doAct(); });
 $('fan').addEventListener('click', e => { const b = (e.target as Element).closest<HTMLElement>('button'); if (!b) return; if (b.dataset.mic) listen(); else if (b.dataset.say) doSay(b.dataset.say); });
 $('rail').addEventListener('click', e => { const b = (e.target as Element).closest<HTMLElement>('[data-call]'); if (b) doCall(+b.dataset.call!); });
@@ -72,7 +75,7 @@ LINK.open(
       else if (m.t === 'ready') { themReady = true; if (screen === 'ready') { readyCard('host', meReady, true, best()); maybeStart(); } }
     } else if (mode === 'guest') {
       if (m.t === 'snap') { if (!snap || screen !== 'play') { local.x = m.s.P[me].x; local.y = m.s.P[me].y; } snap = m.s; }
-      else if (m.t === 'start') { snap = null; lastEv = 0; begin(); }
+      else if (m.t === 'start') { useRoom(m.room === 'tall' ? 'tall' : 'wide'); resize(); snap = null; lastEv = 0; begin(); }
       else if (m.t === 'ready') { themReady = !!m.r; if (screen === 'ready') readyCard('guest', meReady, themReady, best()); }
       else if (m.t === 'toReady') toReady();
     }
@@ -82,7 +85,7 @@ LINK.open(
     else if (st === 'joining') waitCard(T(`Joining room ${LINK.code}…`, `正在加入房间 ${LINK.code}…`));
     else if (st === 'nohost') { lobby(); $('code').focus(); alertCard(T('No room with that code is open.', '没有这个房间码的房间。')); }
     else if (st === 'up' || st === 'hello') { $('net').hidden = true; paused = false; if (screen === 'room' || screen === 'lobby') toReady(); }
-    else if (st === 'reset') { if (mode === 'host' && screen === 'play') send({ t: 'start' }); else if (screen !== 'play') toReady(); }
+    else if (st === 'reset') { if (mode === 'host' && screen === 'play') send({ t: 'start', room: ROOM.id }); else if (screen !== 'play') toReady(); }
     else if (st === 'down') { if (screen === 'play') { paused = true; $('net').hidden = false; } }
     else if (st === 'bye') { lobby(); alertCard(T('Your partner left the room.', '搭档离开了房间。')); }
     else if (st === 'error') { lobby(); alertCard(T('Online play could not start here. Try Safari or Chrome (and the VPN in China).', '这里无法联机。试试 Safari 或 Chrome（在中国请开 VPN）。')); }
@@ -95,23 +98,25 @@ const alertCard = (msg: string) => { const p = $('panel').querySelector('.card')
 const bestKey = () => `mfloor_best_${mode === 'solo' ? 'solo' : 'duo'}`;
 const best = () => { try { return +(localStorage.getItem(bestKey()) || 0); } catch { return 0; } };
 function lobby() {
-  if (LINK.side) LINK.leave(); mode = ''; screen = 'lobby'; music(false); $('hud').hidden = true;
+  if (LINK.side) LINK.leave(); mode = ''; screen = 'lobby'; music(false); $('hud').hidden = true; delete document.body.dataset.room;
   const s = LINK.saved(); lobbyCard(s && s.side === 'g' ? s.code : null);
 }
 function toReady() {
-  screen = 'ready'; meReady = false; themReady = mode === 'solo'; $('hud').hidden = true; music(false);
+  screen = 'ready'; meReady = false; themReady = mode === 'solo'; $('hud').hidden = true; music(false); delete document.body.dataset.room;
   readyCard(mode as any, false, themReady, best());
   if (mode === 'host') send({ t: 'ready', r: false });
 }
 function maybeStart() {
   if (!meReady || !themReady) return;
+  // the shop: the tall one when this phone is held upright, the wide one when it's sideways (the partner gets the same)
+  const room: RoomId = innerHeight > innerWidth ? 'tall' : 'wide'; useRoom(room); resize();
   if (mode === 'solo') { reset([T('You', '你'), 'しばBot'], true); botReset(); }
-  if (mode === 'host') { reset(['A', 'B'], false); send({ t: 'start' }); }
+  if (mode === 'host') { reset(['A', 'B'], false); send({ t: 'start', room }); }
   begin();
 }
 function begin() {
   screen = 'play'; me = mode === 'guest' ? 1 : 0; overAt = 0; lastEv = mode === 'guest' ? 0 : W.evN; lastTick = -1;
-  panel(null); $('hud').hidden = false; wake(); music(true, false); sfx('rush');
+  panel(null); $('hud').hidden = false; document.body.dataset.room = ROOM.id; restStick(ROOM.id === 'tall'); measureHud(); wake(); music(true, false); sfx('rush');
   if (mode !== 'guest') { W.banner = 'open'; W.bannerT = 1.6; }
 }
 $('panel').addEventListener('click', e => {
@@ -129,7 +134,7 @@ $('panel').addEventListener('click', e => {
   else if (a === 'lobby') lobby();
 });
 function finish(v: Snap) {
-  screen = 'over'; music(false); $('hud').hidden = true;
+  screen = 'over'; music(false); $('hud').hidden = true; delete document.body.dataset.room;
   const s = starsFor(v.yen); try { if (s > best()) localStorage.setItem(bestKey(), String(s)); } catch { /* */ }
   resultsCard(v, best(), mode);
 }
@@ -158,7 +163,7 @@ function frame(now: number) {
   const left = Math.ceil(SHIFT.len - v.t); if (left <= 10 && left !== lastTick && v.phase === 'play') { lastTick = left; sfx('tick'); }
   const target = screen === 'play' ? actionTarget(v, me) : null, tg = screen === 'play' ? talkTarget(v, me) : null;
   g.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * ox, dpr * oy);
-  draw(g, v, me, target, dt, now / 1000, mode === 'guest');
+  draw(g, v, me, target, dt, now / 1000, mode === 'guest', topSafe);
   const want = tg && wants(v, tg, me);
   hudTick(v, me, target, want ? { want, seed: tg!.id * 7 + ['door', 'wait', 'ask', 'food', 'bye'].indexOf(tg!.st) + ['greet', 'count', 'seat'].indexOf(tg!.step) } : null, hintFor(v), mode === 'solo');
   if (v.phase === 'over' && screen === 'play') { overAt ||= now; if (now - overAt > 1600) finish(v); }
@@ -183,6 +188,6 @@ function hintFor(v: Snap): string {
 const inv = (location.hash.match(/join=([A-Z0-9]{4})/i) || [])[1];
 if (inv) { history.replaceState(null, '', location.pathname); mode = 'guest'; screen = 'room'; LINK.join(inv.toUpperCase()); waitCard(T(`Joining room ${inv.toUpperCase()}…`, `正在加入房间 ${inv.toUpperCase()}…`)); }
 else lobby();
-(window as any).__floor = { W, view, mode: () => mode, me: () => me, screen: () => screen, act: doAct, say: doSay, call: doCall, stick: (x: number, y: number) => { STICK.x = x; STICK.y = y; }, LINK, choices,
+(window as any).__floor = { W, view, room: () => ROOM.id, mode: () => mode, me: () => me, screen: () => screen, act: doAct, say: doSay, call: doCall, stick: (x: number, y: number) => { STICK.x = x; STICK.y = y; }, LINK, choices,
   // tests: put this phone's own waiter somewhere
   tp: (x: number, y: number) => { const m = mode === 'guest' ? local : W.P[0]; m.x = x; m.y = y; } };
