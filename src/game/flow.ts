@@ -9,7 +9,7 @@ import { ICONSVG, hideUI, ui } from '../ui/menus';
 import { LAYER } from '../render/stage';
 import { PT } from '../render/particles';
 import { PTRS } from '../render/views';
-import { SFX } from '../audio/sfx';
+import { cue } from '../audio/music';
 import { netSend } from '../net/online';
 
 export function startNight(n) {
@@ -26,7 +26,7 @@ export function startNight(n) {
   hideUI();
   $('#hud').hidden = false;
   $('#langBtn').hidden = true;
-  SFX.open();
+  cue('open');
   $('#role').innerHTML = meCook() ? `${ICONSVG.pot}${T('COOK', '厨师')}` : `${ICONSVG.bowl}${T('COUNTER', '柜台')}`;
 }
 export function closeNight() {
@@ -49,7 +49,7 @@ export function showClose(sum) {
   if (!G.NIGHT || G.NIGHT.ph === 'close') return;
   G.NIGHT.ph = 'close';
   PTRS.clear();
-  SFX.close();
+  cue('close');
   for (const w in sum.words) {
     MASTER[w] = (MASTER[w] || 0) + sum.words[w];
   }

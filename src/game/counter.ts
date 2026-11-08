@@ -5,6 +5,7 @@ import { CL } from '../data/layout';
 import { EATING, kenEat, kenLeave, kenLen, kenOn, kenPay } from '../render/stage';
 import { NIGHTS } from '../data/content';
 import { SFX } from '../audio/sfx';
+import { cue } from '../audio/music';
 import { clamp, rnd } from '../core/env';
 import { closeNight } from './flow';
 import { doorTick, groupOut } from './door';
@@ -136,7 +137,7 @@ export function cServe(pi, si) {
       C.words[w] = (C.words[w] || 0) + 1;
     }
     SFX.clink();
-    SFX.happy();
+    cue('good');
     toCook({ t: 'result', cid: g.id, ok: true });
     noteAct();
   } else {
@@ -144,7 +145,7 @@ export function cServe(pi, si) {
     g.st = 'refused';
     g.t = 0;
     g.why = r;
-    SFX.hmm();
+    cue('oops');
     toCook({ t: 'result', cid: g.id, ok: false, why: r.why });
     noteAct();
   }

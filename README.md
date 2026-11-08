@@ -30,6 +30,8 @@ The cook sees a "?" ticket when an order comes in, and the picture only once the
 
 Romaji and meanings step back once you've served a word three times (tap **?** to see them again). Earnings add up to the stall's savings and unlock small decorations: lanterns, a lucky cat, hydrangeas.
 
+**Music:** 「まよなかの雨」 (Midnight Rain) is a lo-fi city-pop loop synthesized in `src/audio/music.ts`, with no audio files. Each night has its own key and chords. It is muffled on the menus, plays in full during a night and speeds up when guests pile up. Its stingers (a served bowl, a new word, opening, closing) are in the song's key. The ♪ button turns it off.
+
 ## Modes
 
 - **Online co-op (two devices, anywhere):** **Play together** opens a room; send the invite link (or the 4-letter code) to your partner.

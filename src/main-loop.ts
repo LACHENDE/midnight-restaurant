@@ -32,6 +32,7 @@ import { kDump, kLift, kLower, kNest, kSlide, kTakeBack, kTop, kUntop, kitchenTi
 import { onNet, setLink } from './net/online';
 import { toCook, toCounter } from './net/messages';
 import { drawGuest } from './render/shapes';
+import { setMusic } from './audio/music';
 
 export let last = 0;
 export function frame(now) {
@@ -79,6 +80,24 @@ export function frame(now) {
   hintTick();
   domTick();
   hudTick();
+  musicTick();
+}
+// the song follows the night: calm on menus and while the link is down, the groove at play, faster when it's busy
+let busyT = 0;
+function musicTick() {
+  const N = G.NIGHT;
+  if (!N || N.ph !== 'run' || G.PAUSED) return setMusic('calm', N ? N.n : 1);
+  const night = NIGHTS[N.n - 1];
+  let busy = false;
+  if (!night.gentle) {
+    if (counterHere() && C) {
+      const waiting = C.seats.filter(s => s.g && ['ask', 'order', 'refused'].includes(s.g.st));
+      busy = waiting.length >= 2 || waiting.some(s => s.g.pat < 0.4) || C.queue.length >= 2;
+    }
+    if (kitchenHere() && K) busy = busy || K.tickets.filter(t => !t.done).length >= 2;
+  }
+  if (busy) busyT = G.clock;
+  setMusic(G.clock - busyT < 4 && busyT ? 'rush' : 'play', N.n);
 }
 export function hudTick() {
   if (!G.NIGHT || !C) return;

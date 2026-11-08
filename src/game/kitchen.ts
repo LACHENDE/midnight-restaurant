@@ -1,6 +1,7 @@
 // the kitchen: the cook's station
 import { G } from './G';
 import { AC, BOIL, SFX, buzz } from '../audio/sfx';
+import { cue } from '../audio/music';
 import { K, isEmpty, meCook, newBowl, trayOpen } from './night-state';
 import { KL } from '../data/layout';
 import { PT, drips, sparkle, splash } from '../render/particles';
@@ -43,6 +44,7 @@ export function kRecv(m) {
       t.why = m.why;
     }
     if (m.ok && meCook()) toast(T('They loved it!', '客人很喜欢！'), 'ok');
+    if (meCook() && G.MODE === 'net') cue(m.ok ? 'good' : 'oops');
     botHear(m);
     return;
   }
