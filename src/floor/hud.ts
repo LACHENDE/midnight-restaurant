@@ -2,6 +2,7 @@
 // three lines to say; banners; and the lobby, ready and results cards.
 import { PHRASES, LINE_IDS, DISHES, SHIFT, ACTION_LABEL, TABLE_JP, type Dish } from './data';
 import { comboMult, starsFor, type Snap, type Act, type Ticket } from './sim';
+import { RUN, NIGHT, ABIL, UPS, kit, VOICE } from './nights';
 
 export const LANG: 'en' | 'zh' = (() => { try { const v = JSON.parse(localStorage.getItem('yofu_lang') || 'null'); if (v === 'zh' || v === 'en') return v; } catch { /* none */ } return /^zh/i.test(navigator.language) ? 'zh' : 'en'; })();
 export const T = (en: string, zh: string) => (LANG === 'zh' ? zh : en);
@@ -36,7 +37,7 @@ const BANNER: Record<string, () => string> = {
   critic: () => `評論家が来た！<small>${T('A food critic: a perfect bowl, fast, pays ×3', '美食评论家：又快又好，收入×3')}</small>`,
   vip: () => `VIP来店！<small>${T('A VIP: big tip if they leave happy', 'VIP：满意离开有大额小费')}</small>`,
   close: () => `閉店！<small>${T('Closing time', '打烊了')}</small>`,
-  open: () => `開店！<small>${T('Doors open', '开门营业')}</small>`,
+  open: () => `第${RUN.night}夜　開店！<small>${T(`Night ${RUN.night}: doors open`, `第 ${RUN.night} 夜：开门营业`)}</small>`,
 };
 
 export function hudTick(v: Snap, me: number, act: Act | null, talk: { want: string; seed: number } | null, hint: string, solo: boolean) {
@@ -67,13 +68,31 @@ export function hudTick(v: Snap, me: number, act: Act | null, talk: { want: stri
   const b = $('banner'); if (v.bannerT > 0 && BANNER[v.banner]) { html('banner', BANNER[v.banner]()); b.hidden = false; } else b.hidden = true;
 }
 
+// ---------- the line abilities ----------
+let abilKey = '';
+/** the ability buttons next to the action button: icon, the line in kana, a cooldown ring; 🎤 says it for the stronger one */
+export function abilTick(v: Snap, me: number, mic: boolean, on: boolean) {
+  const box = $('abil'), ids = on ? kit(me, RUN.ups) : [], key = ids.join() + mic;
+  if (key !== abilKey) {
+    abilKey = key;
+    box.innerHTML = ids.map((id, i) => `<span class="abw"><button type="button" class="ab" data-ab="${id}" aria-label="${PHRASES[ABIL[id].line].k}"><i>${ABIL[id].icon}</i><b>${ABIL[id].short}</b><kbd>${'QRF'[i]}</kbd><em></em></button>${mic ? `<button type="button" class="vmic" data-vab="${id}" aria-label="${T('Say it for a stronger one', '说出来更强')}">🎤</button>` : ''}</span>`).join('');
+  }
+  const P = v.P[me]; if (!P) return;
+  box.querySelectorAll<HTMLElement>('.ab').forEach(b => {
+    const id = b.dataset.ab as keyof typeof ABIL, left = P.cd?.[id] || 0, full = ABIL[id].cd * (1 - 0.2 * (RUN.ups.cool || 0));
+    b.style.setProperty('--cd', String(Math.min(1, left / full)));
+    b.classList.toggle('cool', left > 0); const em = b.querySelector('em')!, t = left > 0 ? String(Math.ceil(left)) : ''; if (em.textContent !== t) em.textContent = t;
+  });
+}
+
 // ---------- cards ----------
 export function panel(h: string | null) { const p = $('panel'); if (h === null) { p.hidden = true; return; } p.innerHTML = `<div class="card">${h}</div>`; p.hidden = false; }
 const HOWTO = () => `<ol class="how">
   <li>${T('Left thumb: move. Right thumb: the action button (pick up, put down, cook, seat).', '左手：移动。右手：动作键（拿、放、煮、带位）。')}</li>
   <li>${T('Next to a guest, three lines appear: say the right one (🎤) or tap it.', '走到客人旁边会出现三句话：说出（🎤）或点对的那句。')}</li>
   <li>${T('Noodles → pot (wait for green) → bowl → topping → the pass → serve.', '面 → 锅（等变绿）→ 碗 → 配料 → 出餐口 → 上菜。')}</li>
-  <li>${T('Only the one who took an order sees it: shout it to your partner, or tap 📣.', '只有点单的人能看到订单：喊给搭档，或点 📣。')}</li></ol>`;
+  <li>${T('Only the one who took an order sees it: shout it to your partner, or tap 📣.', '只有点单的人能看到订单：喊给搭档，或点 📣。')}</li>
+  <li>${T(`Your line abilities sit by the action button: tap one, or 🎤 say the line for a stronger one (×${VOICE}).`, `台词技能在动作键旁：点一下使用，或 🎤 说出台词更强（×${VOICE}）。`)}</li></ol>`;
 export function lobbyCard(saved: string | null) {
   panel(`<div class="kicker">${T('2 players · co-op · 接客 Japanese', '双人合作 · 学接客日语')}</div><h1>まよなか屋<small>${T('the floor', '店面')}</small></h1>
     <p>${T('Run a ramen shop together for three minutes: greet guests in Japanese, seat them, cook, serve, and keep everyone happy through rush hour.', '一起经营拉面店三分钟：用日语接待、带位、煮面、上菜，撑过高峰时段。')}</p>${HOWTO()}
@@ -88,19 +107,35 @@ export function roomCard(code: string, invite: string) {
     <p class="note"><span class="spin"></span>${T('Waiting for your partner…', '等待搭档加入…')}</p><div class="row"><button type="button" class="btn ghost" data-a="lobby">${T('Back', '返回')}</button></div>`);
 }
 export const waitCard = (msg: string) => panel(`<p class="note"><span class="spin"></span>${esc(msg)}</p><div class="row"><button type="button" class="btn ghost" data-a="lobby">${T('Back', '返回')}</button></div>`);
+const kitHtml = (pi: number) => `<div class="kit">${kit(pi, RUN.ups).map(id => `<div><b>${ABIL[id].icon} ${PHRASES[ABIL[id].line].k}</b><small>${T(ABIL[id].en, ABIL[id].zh)}</small></div>`).join('')}</div>`;
+const upsHtml = () => { const u = Object.entries(RUN.ups).filter(([, n]) => n > 0); return u.length ? `<p class="note">${u.map(([k, n]) => `${UPS[k].icon}${n > 1 ? '×' + n : ''}`).join(' ')}</p>` : ''; };
+const nightNews = () => {
+  const n = RUN.night, news: string[] = [];
+  if (n === 1) news.push(T('Tonight: たまご and ねぎ, small groups.', '今晚：たまご 和 ねぎ，小桌客人。'));
+  if (n === 2) news.push(T('New: なると, groups of 3, and a food critic.', '新：なると、三人桌，还有美食评论家。'));
+  if (n === 3) news.push(T('New: groups of 4 and a VIP.', '新：四人桌和 VIP。'));
+  if (n >= 4) news.push(T('Now some guests want two toppings.', '现在有客人要两种配料。'));
+  if (n > 1) news.push(T('Guests come faster and wait less.', '客人来得更快，耐心更少。'));
+  return news.join(' ');
+};
 export function readyCard(mode: 'solo' | 'host' | 'guest', me: boolean, them: boolean, best: number) {
   const partner = mode === 'solo' ? T('しばBot runs the kitchen. Call your orders to it with 📣.', 'しばBot 负责厨房。用 📣 把订单喊给它。') : them ? T('Your partner is ready.', '搭档已准备好。') : T('Waiting for your partner to be ready…', '等待搭档准备…');
-  panel(`<div class="kicker">${T('Tonight · 3 minutes', '今晚 · 3 分钟')}</div><h2>${mode === 'guest' ? T('You wear the green apron', '你穿绿色围裙') : T('You wear the navy apron', '你穿深蓝色围裙')}</h2>${HOWTO()}
-    <p class="note">${partner}${best ? ` · ${T('Best', '最高')} ${'★'.repeat(best)}` : ''}</p>
-    <p class="note">📱 ${mode === 'guest' ? T("Your partner's phone picks the shop: upright is the tall shop, sideways the wide one.", '店面由搭档的手机决定：竖着是竖版店，横着是横版店。') : T('Hold your phone upright for the tall shop, or sideways for the wide one.', '竖着拿手机是竖版店，横着拿是横版店。')}</p>
+  const mins = `${Math.floor(SHIFT.len / 60)}:${String(SHIFT.len % 60).padStart(2, '0')}`;
+  panel(`<div class="kicker">第${RUN.night}夜 · ${T(`Night ${RUN.night}`, `第 ${RUN.night} 夜`)} · ${mins}</div><h2>${mode === 'guest' ? T('You wear the green apron', '你穿绿色围裙') : T('You wear the navy apron', '你穿深蓝色围裙')}</h2>
+    <p>${nightNews()}</p>${kitHtml(mode === 'guest' ? 1 : 0)}${upsHtml()}${RUN.night === 1 ? HOWTO() : ''}
+    <p class="note">${partner}${best ? ` · ${T('Best: night', '最好：第')} ${best}${T('', ' 夜')}` : ''}</p>
     <div class="row"><button type="button" class="btn mint" data-a="ready"${me ? ' disabled' : ''}>${me ? T('Ready ✓', '已准备 ✓') : T('Ready', '准备好了')}</button><button type="button" class="btn ghost" data-a="lobby">${T('Leave', '离开')}</button></div>`);
 }
-export function resultsCard(v: Snap, best: number, mode: string) {
+export function resultsCard(v: Snap, best: number, mode: string, night: number, cleared: boolean, offers: string[]) {
   const stars = starsFor(v.yen), early = v.walkouts >= SHIFT.maxWalkouts;
-  panel(`<div class="kicker">${early ? T('Closed early: three walkouts', '三组客人走掉，提前关门') : T('Closing time', '打烊')}</div>
+  const next = !cleared ? '' : offers.length
+    ? `<h2>${T('Pick an upgrade for night', '选一个升级，进入第')} ${night + 1}${T('', ' 夜')}</h2><div class="ups">${offers.map(k => `<button type="button" class="btn up" data-a="up:${k}"><i>${UPS[k].icon}</i>${T(UPS[k].en, UPS[k].zh)}</button>`).join('')}</div>`
+    : `<p class="note"><span class="spin"></span>${T('Your partner is picking the next upgrade…', '搭档正在选下一个升级…')}</p>`;
+  panel(`<div class="kicker">${cleared ? T(`Night ${night} cleared!`, `第 ${night} 夜过关！`) : early ? T(`Closed early on night ${night}: three walkouts`, `第 ${night} 夜三组客人走掉，提前关门`) : T(`Night ${night}: not enough for a star`, `第 ${night} 夜：没拿到星`)}</div>
     <div class="bigstars">${'★'.repeat(stars)}<span>${'★'.repeat(3 - stars)}</span></div>
     <div class="stats"><span>${T('Takings', '收入')}<b>¥${v.yen.toLocaleString('ja-JP')}</b></span><span>${T('Bowls served', '上了几碗')}<b>${v.served}</b></span>
       <span>${T('Best combo', '最高连击')}<b>${v.bestCombo}</b></span><span>${T('Walkouts', '走掉')}<b>${v.walkouts}</b></span><span>接客<b>${v.ok}/${v.ok + v.bad}</b></span></div>
-    <p class="note">${T('Stars at', '星级')} ¥${SHIFT.stars.map(s => s.toLocaleString('ja-JP')).join(' · ¥')}${best ? ` · ${T('Best', '最高')} ${'★'.repeat(best)}` : ''}</p>
-    <div class="row"><button type="button" class="btn mint" data-a="again">${mode === 'solo' ? T('Again', '再来一次') : T('Another shift', '再来一班')}</button><button type="button" class="btn ghost" data-a="lobby">${T('Lobby', '大厅')}</button></div>`);
+    <p class="note">${T('Stars at', '星级')} ¥${SHIFT.stars.map(s => s.toLocaleString('ja-JP')).join(' · ¥')}${best ? ` · ${T('Best: night', '最好：第')} ${best}${T('', ' 夜')}` : ''}</p>
+    ${next}
+    <div class="row">${cleared ? '' : `<button type="button" class="btn mint" data-a="again">${T('New run from night 1', '从第 1 夜重新开始')}</button>`}<button type="button" class="btn ghost" data-a="lobby">${T('Lobby', '大厅')}</button></div>`);
 }

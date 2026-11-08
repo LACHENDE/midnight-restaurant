@@ -98,3 +98,33 @@ html, body { margin: 0; height: 100%; background: var(--navy); overflow: hidden;
 }
 @media (max-height: 420px) { #act { width: 78px; height: 78px; } #act b { font-size: 15px; } #fan { right: max(100px, calc(var(--sr) + 100px)); } #fan button { font-size: 13px; padding: 3px 10px 3px 5px; } #banner { font-size: 28px; } .card { padding: 10px 16px; } .how { font-size: 11px; line-height: 1.35; } .card p { font-size: 12px; } }
 @media (prefers-reduced-motion: reduce) { #clock.hot, .tk button, #fan .mic.on, #banner, .tk { animation: none; } }
+
+/* line abilities: round buttons left of the action button, a cooldown sweep, 🎤 for the stronger voice cast */
+#abil { position: absolute; right: calc(max(14px, var(--sr)) + 104px); bottom: calc(var(--sb) + 14px); display: flex; gap: 10px; align-items: flex-end; }
+#abil .abw { position: relative; }
+#abil .ab { --cd: 0; position: relative; width: 66px; height: 66px; border-radius: 50%; border: 0; background: #F2B33A; color: #3B2618; box-shadow: 0 4px 0 #B07A1E, 0 6px 14px rgba(0, 0, 0, 0.4); display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; overflow: hidden; padding: 0; }
+#abil .ab i { font-style: normal; font-size: 22px; }
+#abil .ab b { font: 900 8.5px var(--ui); margin-top: 2px; white-space: nowrap; }
+#abil .ab kbd { position: absolute; left: 6px; top: 4px; font: 900 8px var(--ui); opacity: 0.55; }
+#abil .ab em { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font: 900 20px var(--ui); font-style: normal; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.6); background: conic-gradient(rgba(20, 12, 8, 0.62) calc(var(--cd) * 360deg), transparent 0); pointer-events: none; }
+#abil .ab.cool { filter: saturate(0.6); box-shadow: none; }
+#abil .ab:active { transform: translateY(3px); }
+#abil .vmic { position: absolute; right: -6px; top: -10px; width: 28px; height: 28px; border-radius: 50%; border: 2px solid #3B2618; background: var(--mint); font-size: 13px; padding: 0; box-shadow: 0 2px 6px rgba(0,0,0,.4); }
+#abil .vmic.on { background: #ff8a5b; animation: pulse 0.5s ease-in-out infinite alternate; }
+#fan { bottom: calc(var(--sb) + 96px); }
+body.frozen #hud::after { content: ''; position: absolute; inset: 0; box-shadow: inset 0 0 70px rgba(130, 200, 255, 0.6); pointer-events: none; }
+.kit { display: grid; gap: 6px; margin: 8px 0; }
+.kit div { background: rgba(242, 179, 58, 0.14); border-radius: 10px; padding: 6px 10px; }
+.kit b { display: block; font: 900 15px var(--ui); }
+.kit small { display: block; font: 700 11px var(--ui); opacity: 0.8; }
+.ups { display: grid; gap: 8px; margin: 8px 0; }
+.btn.up { display: flex; align-items: center; gap: 10px; text-align: left; font-size: 14px; }
+.btn.up i { font-style: normal; font-size: 22px; }
+/* landscape phones: upgrades side by side, smaller ability buttons */
+.ups { grid-template-columns: repeat(3, 1fr); }
+.btn.up { flex-direction: column; justify-content: center; text-align: center; gap: 4px; font-size: 12px; line-height: 1.25; padding: 10px 8px; }
+#abil .ab { width: 56px; height: 56px; }
+#abil .ab i { font-size: 18px; }
+#abil .ab b { font-size: 7.5px; }
+#abil .vmic { width: 24px; height: 24px; font-size: 11px; right: -5px; top: -8px; }
+#fan { bottom: calc(var(--sb) + 84px); }

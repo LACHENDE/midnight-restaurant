@@ -2,10 +2,11 @@
 // orders and tickets, the kitchen (noodles → pot → bowl → topping → pass), serving, the goodbye, dirty tables,
 // patience and walkouts, rush hour, tips and combos, the food critic and the VIP. The partner's phone gets snapshots.
 import { Walker, nearestFree, distRect } from './world';
-import { TABLES, STATIONS, chairsOf, OUTSIDE, ROOM, WHO, COUNT, PIECES, DISHES, DISH_IDS, COOK, SHIFT, type Who, type Dish, type Station, type Table } from './data';
+import { TABLES, STATIONS, chairsOf, OUTSIDE, ROOM, WHO, COUNT, PIECES, DISHES, COOK, SHIFT, PHRASES, type Who, type Dish, type Station } from './data';
+import { NIGHT, RUN, ABIL, kit, VOICE, type AbId } from './nights';
 
 export type Item = { k: 'noodles' } | { k: 'bowl'; noodles: '' | 'perfect' | 'ok'; tops: Dish[] } | { k: 'dishes'; n: number };
-export interface Player { x: number; y: number; face: number; moving: boolean; hold: Item | null; name: string; bot: boolean }
+export interface Player { x: number; y: number; face: number; moving: boolean; hold: Item | null; name: string; bot: boolean; dash: number; cd: Partial<Record<AbId, number>> }
 export interface Guest { who: Who; x: number; y: number; m: boolean; w?: Walker }
 export type GSt = 'queue' | 'arrive' | 'door' | 'wait' | 'follow' | 'seating' | 'ask' | 'food' | 'eat' | 'leave' | 'bye' | 'out' | 'angry';
 export interface Group {
@@ -19,14 +20,14 @@ export interface World {
   t: number; phase: 'play' | 'over'; yen: number; combo: number; bestCombo: number; walkouts: number; ok: number; bad: number; served: number;
   P: Player[]; groups: Group[]; tickets: Ticket[]; pots: Pot[]; slots: Record<string, Item | null>; dirty: Record<number, number>;
   floats: { x: number; y: number; txt: string; t: number; good: boolean }[]; ev: { id: number; k: string }[]; evN: number;
-  rush: boolean; banner: string; bannerT: number; shake: number;
+  rush: boolean; banner: string; bannerT: number; shake: number; freeze: number; shield: number; night: number;
 }
 
 const fresh = (names: string[], bot: boolean): World => ({
   t: 0, phase: 'play', yen: 0, combo: 0, bestCombo: 0, walkouts: 0, ok: 0, bad: 0, served: 0,
-  P: names.map((name, i) => ({ x: ROOM.start[i ? 1 : 0].x, y: ROOM.start[i ? 1 : 0].y, face: 1, moving: false, hold: null, name, bot: bot && i === 1 })),
+  P: names.map((name, i) => ({ x: ROOM.start[i ? 1 : 0].x, y: ROOM.start[i ? 1 : 0].y, face: 1, moving: false, hold: null, name, bot: bot && i === 1, dash: 0, cd: {} })),
   groups: [], tickets: [], pots: [{ st: 'empty', t: 0 }, { st: 'empty', t: 0 }], slots: Object.fromEntries(STATIONS.filter(s => s.kind === 'island' || s.kind === 'pass').map(s => [s.id, null])),
-  dirty: {}, floats: [], ev: [], evN: 0, rush: false, banner: '', bannerT: 0, shake: 0,
+  dirty: {}, floats: [], ev: [], evN: 0, rush: false, banner: '', bannerT: 0, shake: 0, freeze: 0, shield: 0, night: NIGHT.n,
 });
 export const W: World = fresh(['', ''], false);
 let GID = 0, TID = 0, spawnT = 1.5, critic = false, vip = false;
@@ -177,42 +178,67 @@ function serve(g: Group, pi: number) {
   const p = W.P[pi], h = p.hold, t = tableOf(g.table);
   if (h?.k !== 'bowl') return;
   const i = g.left!.findIndex(b => sameTops(b, h.tops));
-  if (i < 0) { g.mood = 'hmm'; g.moodT = 2; g.reply = 'ちがいます…'; g.replyT = 2.5; W.combo = 0; W.bad++; ev('wrong'); return; }
+  if (i < 0) { g.mood = 'hmm'; g.moodT = 2; g.reply = 'ちがいます…'; g.replyT = 2.5; breakCombo(); W.bad++; ev('wrong'); return; }
   g.left!.splice(i, 1); g.leftN = g.left!.length; p.hold = null;
   const quick = W.t - g.orderT < 25, base = 500 + (h.noodles === 'perfect' ? 100 : 0) + (quick ? 150 : 0);
   const pay = Math.round(base * comboMult(W.combo) * (g.kind === 'critic' ? 3 : 1));
-  W.yen += pay; W.combo++; W.bestCombo = Math.max(W.bestCombo, W.combo); W.served++;
+  W.yen += pay; W.combo++; W.shield = RUN.ups.combo ? 1 : 0; W.bestCombo = Math.max(W.bestCombo, W.combo); W.served++;
   float(t.x, t.y - t.r - 26, `+¥${pay}${quick ? ' はやい！' : ''}`); ev('coin'); if (W.combo === 3 || W.combo === 6 || W.combo === 10) ev('combo');
   g.pat = Math.min(1, g.pat + 0.35);
   const tk = W.tickets.find(x => x.gid === g.id); if (tk) tk.left = g.leftN;
   if (!g.leftN) { g.st = 'eat'; g.t = 0; W.tickets = W.tickets.filter(x => x.gid !== g.id); }
 }
-function goodbye(g: Group) {
-  const tip = Math.round((60 * g.size + (g.kind === 'vip' ? 600 : 0)) * comboMult(W.combo));
+/** a mistake: the combo goes, unless Steady hands still has its one save */
+function breakCombo() { if (W.shield > 0 && W.combo > 0) { W.shield = 0; ev('shield'); } else W.combo = 0; }
+function goodbye(g: Group, boost = 1) {
+  const tip = Math.round((60 * g.size + (g.kind === 'vip' ? 600 : 0)) * comboMult(W.combo) * (1 + 0.25 * (RUN.ups.tips || 0)) * boost);
   W.yen += tip; float(g.guests[0].x, g.guests[0].y - 110, `+¥${tip} ♪`); ev('coin');
   leave(g, 'out');
 }
 function leave(g: Group, st: 'out' | 'angry') { g.st = st; g.t = 0; g.follow = -1; g.guests.forEach((q, i) => { q.w!.speed = st === 'angry' ? 230 : 150; q.w!.goTo({ x: OUTSIDE.x + (i % 2) * 20, y: OUTSIDE.y + i * 10 }); }); }
 function walkout(g: Group) {
-  W.walkouts++; W.combo = 0; W.shake = 0.5; ev('walkout');
+  W.walkouts++; W.combo = 0; W.shield = 0; W.shake = 0.5; ev('walkout');
   float(g.guests[0].x, g.guests[0].y - 110, 'もういい！', false);
   W.tickets = W.tickets.filter(x => x.gid !== g.id); g.table = 0; g.reply = ''; leave(g, 'angry');
   if (W.walkouts >= SHIFT.maxWalkouts) end();
 }
 function end() { W.phase = 'over'; banner('close'); ev('end'); }
 
+// ---------- line abilities ----------
+/** player pi uses an ability (voice: they said the line into the mic, so it's stronger) */
+export function cast(pi: number, id: AbId, voice = false): boolean {
+  const p = W.P[pi]; if (!p || W.phase !== 'play' || !kit(pi, RUN.ups).includes(id) || (p.cd[id] || 0) > 0) return false;
+  const A = ABIL[id], k = voice ? VOICE : 1;
+  p.cd[id] = A.cd * (1 - 0.2 * (RUN.ups.cool || 0));
+  float(p.x, p.y - 120, PHRASES[A.line].k + (voice ? ' 声!' : ''));
+  if (id === 'freeze') W.freeze = Math.max(W.freeze, 6 * k);
+  else if (id === 'dash') p.dash = 5 * k;
+  else if (id === 'rally') for (const g of W.groups) {
+    if (g.st === 'queue' || g.st === 'arrive' || g.st === 'door' || g.st === 'wait') { g.pat = Math.min(1, g.pat + 0.4 * k); g.mood = 'happy'; g.moodT = 1.2; }
+    if (g.st === 'door' && g.step !== 'seat') { g.step = 'seat'; g.reply = COUNT[g.size]; g.replyT = 4; }
+  }
+  else if (id === 'thanks') for (const g of W.groups) {
+    if (g.st === 'eat') { W.dirty[g.table] = g.size; g.table = 0; goodbye(g, 1.5 * k); }
+    else if (g.st === 'leave' || g.st === 'bye') goodbye(g, 1.5 * k);
+    else if (g.st === 'food' || g.st === 'ask') { g.pat = Math.min(1, g.pat + 0.25 * k); g.mood = 'happy'; g.moodT = 1.2; }
+  }
+  W.ok += voice ? 1 : 0; ev(voice ? 'voice' : 'cast');
+  return true;
+}
+
 // ---------- arrivals ----------
 function spawn() {
-  const kind: Group['kind'] = !critic && W.t > 70 ? 'critic' : !vip && W.t > 135 ? 'vip' : 'normal';
+  const kind: Group['kind'] = NIGHT.critic && !critic && W.t > NIGHT.critic ? 'critic' : NIGHT.vip && !vip && W.t > NIGHT.vip ? 'vip' : 'normal';
   if (kind === 'critic') critic = true; if (kind === 'vip') vip = true;
-  const size = kind === 'critic' ? 1 : kind === 'vip' ? 2 : W.t < 35 ? pick([1, 2]) : pick([1, 2, 2, 2, 3, 3, 4, 4]);
+  const size = kind === 'critic' ? 1 : kind === 'vip' ? 2 : W.t < 25 ? pick([1, 2]) : pick(NIGHT.sizes);
   const used = new Set<Who>(), guests: Guest[] = [];
   for (let i = 0; i < size; i++) {
     let who = pick(WHO); for (let k = 0; k < 8 && used.has(who); k++) who = pick(WHO); used.add(who);
     const w = new Walker({ x: OUTSIDE.x + (i % 2) * 24, y: OUTSIDE.y + i * 14 }, 150);
     guests.push({ who, x: w.x, y: w.y, m: false, w });
   }
-  const bowls: Dish[][] = kind === 'critic' ? [[pick(DISH_IDS), 'naruto']] : guests.map(() => [pick(DISH_IDS)]);
+  const two = (): Dish[] => { const a = pick(NIGHT.dishes); let b = pick(NIGHT.dishes); while (b === a) b = pick(NIGHT.dishes); return [a, b]; };
+  const bowls: Dish[][] = kind === 'critic' ? [[pick(NIGHT.dishes), 'naruto']] : guests.map(() => (Math.random() < NIGHT.two ? two() : [pick(NIGHT.dishes)]));
   if (kind === 'critic' && bowls[0][0] === 'naruto') bowls[0][0] = 'tamago';
   W.groups.push({ id: ++GID, kind, size, guests, st: 'queue', t: 0, step: 'greet', table: 0, follow: -1, pat: 1, mood: '', moodT: 0, reply: '', replyT: 0, bowls, left: bowls.map(b => b.slice()), leftN: bowls.length, orderT: 0 });
   if (kind !== 'normal') { banner(kind); ev(kind); }
@@ -221,7 +247,8 @@ const DRAIN: Partial<Record<GSt, number>> = { door: 1 / 22, queue: 1 / 55, wait:
 
 export function tick(dt: number) {
   if (W.phase !== 'play') return;
-  W.t += dt; W.shake = Math.max(0, W.shake - dt); W.bannerT = Math.max(0, W.bannerT - dt);
+  W.t += dt; W.shake = Math.max(0, W.shake - dt); W.bannerT = Math.max(0, W.bannerT - dt); W.freeze = Math.max(0, W.freeze - dt);
+  for (const p of W.P) { p.dash = Math.max(0, p.dash - dt); for (const k in p.cd) p.cd[k as AbId] = Math.max(0, p.cd[k as AbId]! - dt); }
   if (!W.rush && W.t >= SHIFT.rush) { W.rush = true; banner('rush'); ev('rush'); }
   if (W.t >= SHIFT.len) { end(); return; }
   for (const f of W.floats) f.t += dt; W.floats = W.floats.filter(f => f.t < 1.5);
@@ -230,14 +257,14 @@ export function tick(dt: number) {
   // arrivals: never more than two groups waiting at the door
   spawnT -= dt;
   const atDoor = W.groups.filter(g => g.st === 'queue' || g.st === 'arrive' || g.st === 'door').length;
-  if (spawnT <= 0 && atDoor < 2) { spawn(); spawnT = W.rush ? 6.5 : 13 - 4 * Math.min(1, W.t / SHIFT.rush); }
+  if (spawnT <= 0 && atDoor < 2) { spawn(); spawnT = W.rush ? NIGHT.rushSpawn : NIGHT.spawn - 4 * Math.min(1, W.t / SHIFT.rush); }
   // the front of the queue steps up to the door
   if (!W.groups.some(g => g.st === 'arrive' || g.st === 'door')) { const q = W.groups.find(g => g.st === 'queue'); if (q) { q.st = 'arrive'; q.t = 0; q.guests.forEach((g, i) => g.w!.goTo(ROOM.doorSpot(i))); } }
   for (const g of W.groups) {
     g.t += dt; g.moodT = Math.max(0, g.moodT - dt); if (!g.moodT) g.mood = '';
     g.replyT = Math.max(0, g.replyT - dt); if (!g.replyT) g.reply = '';
     for (const q of g.guests) { q.w!.step(dt); q.x = q.w!.x; q.y = q.w!.y; q.m = q.w!.moving; }
-    const rate = (DRAIN[g.st] || 0) * (g.kind === 'critic' ? 1.6 : g.kind === 'vip' ? 1.3 : 1) * (W.rush ? 1.2 : 1);
+    const rate = W.freeze > 0 ? 0 : (DRAIN[g.st] || 0) * (g.kind === 'critic' ? 1.6 : g.kind === 'vip' ? 1.3 : 1) * (W.rush ? 1.2 : 1) * NIGHT.drain;
     if (rate) { g.pat -= rate * dt; if (g.pat <= 0) { walkout(g); if (W.phase !== 'play') return; continue; } }
     switch (g.st) {
       case 'queue': if (g.guests.every(q => q.w!.idle) && g.t < 0.1) g.guests.forEach((q, i) => q.w!.goTo(ROOM.queueSpot(i))); break;
@@ -260,7 +287,7 @@ export function tick(dt: number) {
 export function snapshot(viewer: number) {
   return {
     t: W.t, phase: W.phase, yen: W.yen, combo: W.combo, bestCombo: W.bestCombo, walkouts: W.walkouts, ok: W.ok, bad: W.bad, served: W.served,
-    rush: W.rush, banner: W.banner, bannerT: W.bannerT, shake: W.shake, pots: W.pots, slots: W.slots, dirty: W.dirty, floats: W.floats, ev: W.ev,
+    rush: W.rush, banner: W.banner, bannerT: W.bannerT, shake: W.shake, freeze: W.freeze, night: W.night, pots: W.pots, slots: W.slots, dirty: W.dirty, floats: W.floats, ev: W.ev,
     P: W.P.map(p => ({ ...p })),
     groups: W.groups.map(({ bowls, left, ...g }) => ({ ...g, guests: g.guests.map(q => ({ who: q.who, x: q.x, y: q.y, m: q.m })) })),
     tickets: W.tickets.map(tk => ({ ...tk, items: tk.by === viewer || tk.called ? tk.items : null })),

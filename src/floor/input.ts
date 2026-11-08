@@ -1,11 +1,11 @@
 // Controls: a floating joystick on the left half of the screen, the action button and the line buttons on the right;
-// on a keyboard, WASD / arrows move, Space or E is the action, 1–3 say a line, M listens with the microphone.
+// on a keyboard, WASD / arrows move, Space or E is the action, 1–3 say a line, M listens with the microphone, Q R F use abilities.
 export const STICK = { x: 0, y: 0 }; // -1..1 on each axis
 const base = document.getElementById('stick')!, knob = base.firstElementChild as HTMLElement;
 const R = 56; // how far the knob travels, in CSS px
 let pid: number | null = null, ox = 0, oy = 0;
 const keys = new Set<string>();
-export function bindInput(canvas: HTMLCanvasElement, on: { act: () => void; line: (i: number) => void; mic: () => void; active: () => boolean; tall: () => boolean }) {
+export function bindInput(canvas: HTMLCanvasElement, on: { act: () => void; line: (i: number) => void; mic: () => void; active: () => boolean; tall: () => boolean; ab: (i: number) => void }) {
   canvas.addEventListener('pointerdown', e => {
     if (!on.active() || pid !== null) return;
     // sideways: anywhere on the left; upright (the tall shop): the lower left, where the stick rests
@@ -27,6 +27,7 @@ export function bindInput(canvas: HTMLCanvasElement, on: { act: () => void; line
     if (k === ' ' || k === 'e' || k === 'enter') { e.preventDefault(); if (!e.repeat) on.act(); }
     if (k === '1' || k === '2' || k === '3') on.line(+k - 1);
     if (k === 'm' && !e.repeat) on.mic();
+    if ((k === 'q' || k === 'r' || k === 'f') && !e.repeat) on.ab('qrf'.indexOf(k));
     keyStick();
   });
   addEventListener('keyup', e => { keys.delete(e.key.toLowerCase()); keyStick(); });
