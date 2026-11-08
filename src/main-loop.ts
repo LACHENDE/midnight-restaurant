@@ -52,8 +52,9 @@ export function frame(now) {
   }
   stepParticles(dt);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  const k3 = !!(HOOK3D.kitchen && G.NIGHT && K && C && meCook());
-  if (k3) ctx.clearRect(0, 0, cv.width, cv.height);
+  const k3 = !!(HOOK3D.kitchen && G.NIGHT && K && C && meCook()),
+    c3 = !!HOOK3D.counter && !k3;
+  if (k3 || c3) ctx.clearRect(0, 0, cv.width, cv.height);
   else {
     HOOK3D.off?.();
     ctx.fillStyle = '#1A2340';
@@ -66,12 +67,12 @@ export function frame(now) {
   ctx.clip();
   if (G.NIGHT && K && C) {
     if (meCook()) k3 ? HOOK3D.kitchen!(dt) : drawKitchen(dt);
-    else drawCounter(dt);
+    else c3 ? HOOK3D.counter!(dt) : drawCounter(dt);
     if (G.NIGHT.ph === 'run') drawHintArrow(ctx, HINT);
   } else {
     if (!C) cReset(1);
     if (!K) kReset();
-    drawCounter(dt);
+    c3 ? HOOK3D.counter!(dt) : drawCounter(dt);
   }
   drawParticles(ctx);
   ctx.restore();

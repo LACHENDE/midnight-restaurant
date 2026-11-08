@@ -20,6 +20,8 @@ const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const Z0 = 0.9; // the worktop's height (metres; z is up)
 let R: THREE.WebGLRenderer, scene: THREE.Scene, cam: THREE.PerspectiveCamera, glc: HTMLCanvasElement;
 let low = /[?&]lo\b/.test(location.search), slow = 0, fpsT = 0, frames = 0;
+export const SCENES: THREE.Scene[] = [];
+export const isLow = () => low;
 
 // ---------- stage point → 3D ----------
 const ray = (sx: number, sy: number) => {
@@ -34,8 +36,8 @@ function atY(sx: number, sy: number, y: number) { const d = ray(sx, sy), t = (y 
 const span = (sx: number, sy: number, z: number, w: number) => atZ(sx - w / 2, sy, z).distanceTo(atZ(sx + w / 2, sy, z));
 
 // ---------- materials ----------
-const M = (c: string, rough = 0.6, metal = 0, extra: THREE.MeshPhysicalMaterialParameters = {}) => new THREE.MeshPhysicalMaterial({ color: c, roughness: rough, metalness: metal, ...extra });
-const MAT = {
+export const M = (c: string, rough = 0.6, metal = 0, extra: THREE.MeshPhysicalMaterialParameters = {}) => new THREE.MeshPhysicalMaterial({ color: c, roughness: rough, metalness: metal, ...extra });
+export const MAT = {
   wood: M('#9C6844', 0.55, 0, { clearcoat: 0.2 }), woodD: M('#4E3020', 0.65), woodL: M('#C99A6C', 0.5, 0, { clearcoat: 0.3 }),
   plank: [M('#6E4A36', 0.7), M('#5F3F2E', 0.7)], steel: M('#D3DADF', 0.22, 0.85), steelD: M('#5B646C', 0.35, 0.7),
   black: M('#202428', 0.5), red: M('#D7432F', 0.55), cream: M('#FFF1DA', 0.5), white: M('#FAF8F3', 0.22, 0, { clearcoat: 0.6 }),
@@ -49,7 +51,7 @@ const MAT = {
 const JARS = ['#E9C79B', '#A7BF8A', '#D96F45', '#F0C27A', '#B48AB3'].map(c => M(c, 0.3, 0, { clearcoat: 0.6 }));
 const HYD = ['#5B7BEA', '#8E6AD8', '#4C9BE0'].map(c => M(c, 0.6));
 
-function canvasTex(w: number, h: number, draw: (g: CanvasRenderingContext2D) => void) {
+export function canvasTex(w: number, h: number, draw: (g: CanvasRenderingContext2D) => void) {
   const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d')!);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
 }
@@ -61,23 +63,23 @@ const BOWL_IN = M('#FAF8F3', 0.22, 0, { clearcoat: 0.6, side: THREE.DoubleSide }
 const meshTex = canvasTex(64, 64, g => { g.clearRect(0, 0, 64, 64); g.strokeStyle = '#fff'; g.lineWidth = 3; for (let i = 0; i <= 64; i += 8) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i, 64); g.moveTo(0, i); g.lineTo(64, i); g.stroke(); } });
 meshTex.wrapS = meshTex.wrapT = THREE.RepeatWrapping; meshTex.repeat.set(6, 2);
 const wire = new THREE.MeshStandardMaterial({ color: '#C9D2D9', metalness: 0.8, roughness: 0.3, alphaMap: meshTex, transparent: true, side: THREE.DoubleSide, alphaTest: 0.3 });
-const softTex = canvasTex(64, 64, g => { const r = g.createRadialGradient(32, 32, 2, 32, 32, 30); r.addColorStop(0, 'rgba(255,255,255,.9)'); r.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = r; g.fillRect(0, 0, 64, 64); });
+export const softTex = canvasTex(64, 64, g => { const r = g.createRadialGradient(32, 32, 2, 32, 32, 30); r.addColorStop(0, 'rgba(255,255,255,.9)'); r.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = r; g.fillRect(0, 0, 64, 64); });
 const swirlTex = canvasTex(64, 64, g => { g.fillStyle = '#FAF8F3'; g.fillRect(0, 0, 64, 64); g.strokeStyle = '#EE7FA0'; g.lineWidth = 5; g.beginPath(); for (let a = 0; a < 12; a += 0.1) { const r = a * 2.4; g.lineTo(32 + Math.cos(a) * r, 32 + Math.sin(a) * r); } g.stroke(); });
 
 // ---------- shapes ----------
-const add = (o: THREE.Object3D, parent: THREE.Object3D = scene) => { parent.add(o); return o; };
-function mesh(geo: THREE.BufferGeometry, mat: THREE.Material, shadow = true) { const m = new THREE.Mesh(geo, mat); m.castShadow = shadow; m.receiveShadow = true; return m; }
-const rbox = (w: number, d: number, h: number, mat: THREE.Material, r = 0.03) => mesh(new RoundedBoxGeometry(w, d, h, 3, Math.min(r, w / 2.2, d / 2.2, h / 2.2)), mat);
+export const add = (o: THREE.Object3D, parent: THREE.Object3D = scene) => { parent.add(o); return o; };
+export function mesh(geo: THREE.BufferGeometry, mat: THREE.Material, shadow = true) { const m = new THREE.Mesh(geo, mat); m.castShadow = shadow; m.receiveShadow = true; return m; }
+export const rbox = (w: number, d: number, h: number, mat: THREE.Material, r = 0.03) => mesh(new RoundedBoxGeometry(w, d, h, 3, Math.min(r, w / 2.2, d / 2.2, h / 2.2)), mat);
 /** a turned shape (bowl, pot): profile [radius, height] points, open or closed */
-function lathe(pts: [number, number][], mat: THREE.Material, seg = 40) {
+export function lathe(pts: [number, number][], mat: THREE.Material, seg = 40) {
   const g = new THREE.LatheGeometry(pts.map(([r, h]) => new THREE.Vector2(r, h)), seg); g.rotateX(Math.PI / 2); return mesh(g, mat);
 }
-const cyl = (r: number, h: number, mat: THREE.Material, seg = 32, top = r) => { const g = new THREE.CylinderGeometry(top, r, h, seg); g.rotateX(Math.PI / 2); return mesh(g, mat); };
-const ball = (r: number, mat: THREE.Material, sx = 1, sy = 1, sz = 1) => { const m = mesh(new THREE.SphereGeometry(r, 24, 16), mat); m.scale.set(sx, sy, sz); return m; };
-const torus = (R: number, r: number, mat: THREE.Material) => mesh(new THREE.TorusGeometry(R, r, 10, 28), mat);
+export const cyl = (r: number, h: number, mat: THREE.Material, seg = 32, top = r) => { const g = new THREE.CylinderGeometry(top, r, h, seg); g.rotateX(Math.PI / 2); return mesh(g, mat); };
+export const ball = (r: number, mat: THREE.Material, sx = 1, sy = 1, sz = 1) => { const m = mesh(new THREE.SphereGeometry(r, 24, 16), mat); m.scale.set(sx, sy, sz); return m; };
+export const torus = (R: number, r: number, mat: THREE.Material) => mesh(new THREE.TorusGeometry(R, r, 10, 28), mat);
 
 /** a ramen bowl (radius r): striped outside, white inside, and what's in it */
-function makeBowl(r: number) {
+export function makeBowl(r: number) {
   const g = new THREE.Group(), h = r * 0.62;
   const prof: [number, number][] = [[r * 0.42, 0], [r * 0.46, h * 0.08], [r * 0.82, h * 0.55], [r, h], [r * 0.95, h], [r * 0.78, h * 0.55], [r * 0.4, h * 0.12], [0, h * 0.12]];
   const shell = lathe(prof, bowlOut, 48); add(shell, g);
@@ -92,10 +94,10 @@ function makeBowl(r: number) {
   for (const k in tops) add(tops[k], g);
   return { g, r, h, soup, noodles, tops };
 }
-type Bowl3 = ReturnType<typeof makeBowl>;
+export type Bowl3 = ReturnType<typeof makeBowl>;
 const NOODLE_COL: Record<string, string> = { raw: '#F7E6B0', ready: '#F2D27E', soft: '#E6BE62', soggy: '#C9A24E' };
 /** show bowl state b (noodles, broth level, toppings) on a 3D bowl; the toppings sit where the 2D game expects them */
-function fillBowl(B: Bowl3, b: any, sx: number, sy: number) {
+export function fillBowl(B: Bowl3, b: any, sx: number, sy: number, at: (x: number, y: number, z: number) => THREE.Vector3 = atZ) {
   const lvl = Math.min(1.1, b.broth || 0);
   B.soup.visible = lvl > 0.02 || !!b.noodles;
   const z = B.h * (0.18 + 0.7 * Math.min(1, lvl || 0.35)); B.soup.position.z = z;
@@ -105,7 +107,7 @@ function fillBowl(B: Bowl3, b: any, sx: number, sy: number) {
   if (b.noodles) B.noodles.children.forEach(n => ((n as THREE.Mesh).material as THREE.MeshPhysicalMaterial).color.set(NOODLE_COL[b.noodles] || '#F2D27E'));
   for (const w in B.tops) {
     const on = (b.tops || []).includes(w); B.tops[w].visible = on;
-    if (on) { const p = bowlTopAt(sx, sy, 1, w), q = atZ(p.x, p.y, B.g.position.z + z), loc = B.g.worldToLocal(q.clone()); B.tops[w].position.set(loc.x, loc.y, z + B.r * 0.05); }
+    if (on) { const p = bowlTopAt(sx, sy, 1, w), q = at(p.x, p.y, B.g.position.z + z), loc = B.g.worldToLocal(q.clone()); B.tops[w].position.set(loc.x, loc.y, z + B.r * 0.05); }
   }
 }
 
@@ -238,7 +240,7 @@ function makeLadle() {
   return g;
 }
 function nest(r: number) { const g = new THREE.Group(); for (let i = 0; i < 4; i++) { const t = torus(r * (0.5 + i * 0.15), r * 0.18, MAT.noodle); t.rotation.z = i; t.position.z = i * 0.006; add(t, g); } return g; }
-function topping(w: string, r: number) {
+export function topping(w: string, r: number) {
   const g = new THREE.Group();
   if (w === 'tamago') { add(ball(r, MAT.white, 1, 0.8, 0.5), g); const y = ball(r * 0.55, MAT.yolk, 1, 0.8, 0.5); y.position.z = r * 0.3; add(y, g); }
   else if (w === 'negi') { for (let i = 0; i < 5; i++) { const t = torus(r * 0.3, r * 0.12, MAT.negi); t.position.set(Math.cos(i * 1.3) * r * 0.5, Math.sin(i * 2.1) * r * 0.5, 0.01); add(t, g); } }
@@ -349,17 +351,28 @@ function size() {
   const w = innerWidth, h = innerHeight;
   R.setPixelRatio(low ? 1 : Math.min(2, DPR)); R.setSize(w, h, false);
 }
-function render(dt: number) {
+/** draw a scene into the stage's rectangle of the screen (shared by the kitchen and the counter) */
+export function drawScene(sc: THREE.Scene, c: THREE.Camera, dt: number) {
   glc.hidden = false;
-  sync(dt);
-  const w = innerWidth, h = innerHeight, vw = VW * S, vh = VH * S;
+  const h = innerHeight, vw = VW * S, vh = VH * S;
   R.setScissorTest(false); R.setClearColor('#1A2340'); R.clear();
   R.setViewport(OX, h - OY - vh, vw, vh); R.setScissor(OX, h - OY - vh, vw, vh); R.setScissorTest(true);
-  R.render(scene, cam);
+  R.render(sc, c);
+  quality(dt);
+}
+export const renderer = () => R;
+function render(dt: number) {
+  sync(dt);
+  drawScene(scene, cam, 0);
   words();
+  quality(dt);
+}
+function quality(dt: number) {
+  if (!dt) return;
+  const w = 0;
   // a phone that can't keep up gets fewer pixels and no shadows
   fpsT += dt; frames++; if (dt > 0.024) slow += dt;
-  if (fpsT > 2.5) { if (!low && slow / fpsT > 0.35) { low = true; R.shadowMap.enabled = false; scene.traverse(o => { if ((o as THREE.Mesh).material) ((o as THREE.Mesh).material as THREE.Material).needsUpdate = true; }); size(); } fpsT = 0; slow = 0; frames = 0; }
+  if (fpsT > 2.5) { if (!low && slow / fpsT > 0.35) { low = true; R.shadowMap.enabled = false; for (const sc of SCENES) sc.traverse(o => { if ((o as THREE.Mesh).material) ((o as THREE.Mesh).material as THREE.Material).needsUpdate = true; }); size(); } fpsT = 0; slow = 0; frames = 0; }
   void w;
 }
 export function initKitchen3D() {
@@ -368,7 +381,7 @@ export function initKitchen3D() {
   R.outputColorSpace = THREE.SRGBColorSpace; R.toneMapping = THREE.ACESFilmicToneMapping; R.toneMappingExposure = 1.05;
   R.shadowMap.enabled = !low; R.shadowMap.type = THREE.PCFSoftShadowMap; R.autoClear = false;
   size(); addEventListener('resize', size);
-  build();
+  build(); SCENES.push(scene);
   HOOK3D.kitchen = render;
   HOOK3D.off = () => { glc.hidden = true; };
   (window as any).__k3d = { scene, cam, atZ, low: () => low, R };
