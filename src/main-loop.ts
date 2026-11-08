@@ -4,7 +4,7 @@ import { LINK } from './net/link';
 import { $, HUB, T, esc, store } from './core/env';
 import { C, K, NET_, cReset, counterHere, kReset, kitchenHere, meCook, meCounter } from './game/night-state';
 import { CL, KL } from './data/layout';
-import { DPR, KEN, OX, OY, S, VH, VW, ctx, cv, kenClip, toS, ART } from './render/stage';
+import { DPR, KEN, OX, OY, S, VH, VW, ctx, cv, kenClip, toS, ART, HOOK3D } from './render/stage';
 import { HINT, hintTick } from './game/teach';
 import { MASTER, NIGHTS, LOOKS } from './data/content';
 import { PHRASES, cSay, doorWant, matchPhrase, sayTick } from './game/door';
@@ -52,15 +52,20 @@ export function frame(now) {
   }
   stepParticles(dt);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.fillStyle = '#1A2340';
-  ctx.fillRect(0, 0, cv.width, cv.height);
+  const k3 = !!(HOOK3D.kitchen && G.NIGHT && K && C && meCook());
+  if (k3) ctx.clearRect(0, 0, cv.width, cv.height);
+  else {
+    HOOK3D.off?.();
+    ctx.fillStyle = '#1A2340';
+    ctx.fillRect(0, 0, cv.width, cv.height);
+  }
   ctx.setTransform(S * DPR, 0, 0, S * DPR, OX * DPR, OY * DPR);
   ctx.save();
   ctx.beginPath();
   ctx.rect(0, 0, VW, VH);
   ctx.clip();
   if (G.NIGHT && K && C) {
-    if (meCook()) drawKitchen(dt);
+    if (meCook()) k3 ? HOOK3D.kitchen!(dt) : drawKitchen(dt);
     else drawCounter(dt);
     if (G.NIGHT.ph === 'run') drawHintArrow(ctx, HINT);
   } else {

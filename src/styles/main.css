@@ -724,3 +724,6 @@ input.codein {
     margin: 6px 0;
   }
 }
+/* the 3D page: the WebGL kitchen under the 2D canvas, which only draws the words, the dial and the effects */
+#gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+#gl[hidden] { display: none !important; }

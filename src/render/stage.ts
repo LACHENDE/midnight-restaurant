@@ -17,6 +17,8 @@ export let W = 0,
   OX = 0,
   OY = 0;
 export const LAYER: Record<string, any> = {};
+/** the 3D page plugs in here: kitchen(dt) draws the cook's view in 3D (and the 2D words over it); off() hides it */
+export const HOOK3D: { kitchen: null | ((dt: number) => void); off: null | (() => void) } = { kitchen: null, off: null };
 export function resize() {
   W = innerWidth;
   H = innerHeight;

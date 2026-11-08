@@ -2,7 +2,7 @@
   "name": "midnight-restaurant",
   "private": true,
   "version": "0.4.0",
-  "description": "\u307e\u3088\u306a\u304b\u5c4b Midnight Restaurant: a cozy two-player online ramen stall for learning Japanese",
+  "description": "まよなか屋 Midnight Restaurant: a cozy two-player online ramen stall for learning Japanese",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -13,11 +13,13 @@
     "lint": "prettier --check src && tsc --noEmit"
   },
   "devDependencies": {
+    "@types/three": "^0.170.0",
     "prettier": "^3.3.3",
     "typescript": "^5.6.3",
     "vite": "^5.4.10"
   },
   "dependencies": {
-    "peerjs": "^1.5.4"
+    "peerjs": "^1.5.4",
+    "three": "^0.170.0"
   }
 }
