@@ -14,7 +14,7 @@ type Song = { bpm: number; bars: Bar[]; mel: Hit[][]; pent: number[] };
 // 3 · At the door (Eb major): Abmaj7, Bb9, Gm7, Cm9 (the J-pop "royal road", IV V iii vi)
 const SONGS: Song[] = [
   {
-    bpm: 80,
+    bpm: 70,
     pent: [62, 64, 66, 69, 71],
     bars: [
       { b: 43, c: [59, 62, 66, 69] },
@@ -75,7 +75,7 @@ const SONGS: Song[] = [
     ],
   },
   {
-    bpm: 88,
+    bpm: 76,
     pent: [65, 67, 69, 72, 74],
     bars: [
       { b: 46, c: [58, 62, 65, 69] },
@@ -139,7 +139,7 @@ const SONGS: Song[] = [
     ],
   },
   {
-    bpm: 84,
+    bpm: 73,
     pent: [63, 65, 67, 70, 72],
     bars: [
       { b: 44, c: [55, 60, 63, 67] },
@@ -208,14 +208,19 @@ let bus: GainNode | null = null,
   timer = 0,
   next = 0,
   step = 0,
-  bpm = 80,
+  bpm = 70,
+  target = 70,
+  heat = 0, // how busy the night feels, 0 (cozy) to 1 (slammed), eased
+  heatT = 0,
   song = 0,
   mood: Mood = 'off',
   muted = !!store.get('musicOff', false),
   seed = 7;
 const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
 export const musicMuted = () => muted;
-const LEVEL = { off: 0, calm: 0.5, play: 0.62, rush: 0.68 };
+// kept very low: the song sits behind the rain and the kitchen, it doesn't sit on top of them
+const LEVEL = { off: 0, calm: 0.16, play: 0.2, rush: 0.2 };
+const level = () => (muted ? 0 : LEVEL[mood] + (mood === 'calm' ? 0 : heat * 0.06));
 
 function build() {
   if (bus || !AC) return;
@@ -320,11 +325,9 @@ function kick(t: number, v: number) {
   o.frequency.exponentialRampToValueAtTime(45, t + 0.18);
   g.connect(bus);
 }
+// a brushed snare: a soft swish rather than a crack (it tightens up as it gets busy)
 function snare(t: number, v: number) {
-  noise(t, 0.16, 'bandpass', 1900, v);
-  const g = env(t, v * 0.5, 0.002, 0.08);
-  osc('triangle', 190, t, 0.08, g);
-  g.connect(bus);
+  noise(t, 0.26 - heat * 0.12, 'bandpass', 1200 + heat * 900, v);
 }
 
 // one 16th note of the song
@@ -338,16 +341,17 @@ function play(t: number, s: number) {
     root = half ? bar.b2! : bar.b,
     sec = Math.floor(barN / 8) % 2, // 0: the tune, 1: a looser second half (the keys take a little solo)
     st = 60 / bpm / 4,
-    calm = mood === 'calm',
-    rush = mood === 'rush';
-  // drums: lazy and behind the beat; none on menus
+    calm = mood === 'calm';
+  // drums: none on menus; a soft heartbeat when it's quiet, and layers join as the night gets busy
   if (!calm) {
-    if (s16 === 0 || s16 === 10 || (rush && s16 === 7)) kick(t, 0.32);
-    if (s16 === 4 || s16 === 12) snare(t, 0.09);
-    if (s16 % 2 === 0) noise(t, s16 === 14 ? 0.18 : 0.035, 'highpass', 7500, s16 % 4 ? 0.022 : 0.03);
-    if (rush && s16 % 2 === 1) noise(t, 0.03, 'highpass', 9000, 0.012);
+    const h = heat;
+    if (s16 === 0 || (h > 0.3 && s16 === 10) || (h > 0.8 && s16 === 7)) kick(t, 0.16 + h * 0.1);
+    if (s16 === 4 || s16 === 12) snare(t, 0.03 + h * 0.03);
+    if (h > 0.8 && s16 === 15) snare(t, 0.015);
+    if (s16 % 4 === 2 || (h > 0.3 && s16 % 2 === 0)) noise(t, 0.04, 'highpass', 7000, 0.01 + h * 0.012);
+    if (h > 0.55 && s16 % 2 === 1) noise(t, 0.03, 'highpass', 9000, 0.008);
     // vinyl crackle, very quiet
-    if (rnd() < 0.18) noise(t, 0.008, 'highpass', 3000, 0.02);
+    if (rnd() < 0.12) noise(t, 0.008, 'highpass', 3000, 0.012);
   }
   // bass: root, a pickup, and a chromatic walk into the next chord
   const nxt = S.bars[(barN + 1) % 4].b;
@@ -370,7 +374,7 @@ function play(t: number, s: number) {
       if (at === s16) {
         if (calm)
           lead(m + 12, t, st * len * 0.6, 0.022, true); // a music box on menus
-        else lead(m, t, st * len * 0.92, 0.05);
+        else lead(m, t, st * len * 0.92, 0.035);
       }
   } else if (!calm && s16 % 2 === 0 && rnd() < (s16 % 4 ? 0.22 : 0.4)) {
     // a little improvised fill on the keys, from the night's pentatonic scale
@@ -390,11 +394,12 @@ function schedule() {
     } catch (e) {}
     next += 60 / bpm / 4;
     step++;
+    bpm += (target - bpm) * 0.05; // ease the tempo instead of jumping
   }
 }
 
-/** which night's song, and how busy it feels; cheap to call every frame */
-export function setMusic(m: Mood, night = song + 1) {
+/** which night's song, and how busy it is (0..1); cheap to call every frame */
+export function setMusic(m: Mood, night = song + 1, busy = 0) {
   if (!AC) return;
   build();
   const n = Math.max(0, Math.min(SONGS.length - 1, night - 1));
@@ -402,39 +407,36 @@ export function setMusic(m: Mood, night = song + 1) {
     song = n;
     step = 0; // a new night starts its song from the top
   }
-  const target = SONGS[song].bpm + (m === 'calm' ? -10 : m === 'rush' ? 14 : 0);
-  if (m === mood && bpm === target) return;
-  const was = mood;
-  mood = m;
-  const t = AC.currentTime;
-  bus.gain.cancelScheduledValues(t);
-  bus.gain.setTargetAtTime(muted ? 0 : LEVEL[m], t, 0.6);
-  tone.frequency.cancelScheduledValues(t);
-  tone.frequency.setTargetAtTime(m === 'calm' ? 1000 : m === 'rush' ? 9000 : 6000, t, 0.8);
-  // ease the tempo instead of jumping
-  const ease = () => {
-    if (Math.abs(bpm - target) < 0.6) bpm = target;
-    else {
-      bpm += (target - bpm) * 0.15;
-      setTimeout(ease, 120);
+  // busyness rises over a few seconds and settles back more slowly, so the beat never lurches
+  const now = AC.currentTime,
+    dt = Math.min(0.2, Math.max(0, now - heatT)),
+    want = m === 'calm' ? 0 : busy;
+  heatT = now;
+  heat += (want - heat) * Math.min(1, dt * (want > heat ? 0.6 : 0.25));
+  target = SONGS[song].bpm + (m === 'calm' ? -6 : heat * 30);
+  const t = now;
+  if (m !== mood) {
+    const was = mood;
+    mood = m;
+    if (m === 'off') {
+      clearInterval(timer);
+      timer = 0;
+    } else if (!timer) {
+      if (was === 'off') {
+        next = now + 0.1;
+        step = 0;
+        bpm = target;
+      }
+      timer = window.setInterval(schedule, 25);
     }
-  };
-  ease();
-  if (m === 'off') {
-    clearInterval(timer);
-    timer = 0;
-  } else if (!timer) {
-    if (was === 'off') {
-      next = AC.currentTime + 0.1;
-      step = 0;
-    }
-    timer = window.setInterval(schedule, 25);
   }
+  bus.gain.setTargetAtTime(level(), t, 0.6);
+  tone.frequency.setTargetAtTime(m === 'calm' ? 900 : 2400 + heat * 5000, t, 0.8);
 }
 export function toggleMusic() {
   muted = !muted;
   store.set('musicOff', muted);
-  if (bus && AC) bus.gain.setTargetAtTime(muted ? 0 : LEVEL[mood], AC.currentTime, 0.2);
+  if (bus && AC) bus.gain.setTargetAtTime(level(), AC.currentTime, 0.2);
   return muted;
 }
 

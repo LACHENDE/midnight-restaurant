@@ -82,22 +82,20 @@ export function frame(now) {
   hudTick();
   musicTick();
 }
-// the song follows the night: calm on menus and while the link is down, the groove at play, faster when it's busy
-let busyT = 0;
+// the song follows the night: calm on menus and while the link is down, cozy at play, a faster beat as guests pile up
 function musicTick() {
   const N = G.NIGHT;
   if (!N || N.ph !== 'run' || G.PAUSED) return setMusic('calm', N ? N.n : 1);
-  const night = NIGHTS[N.n - 1];
-  let busy = false;
-  if (!night.gentle) {
+  let load = 0;
+  if (!NIGHTS[N.n - 1].gentle) {
     if (counterHere() && C) {
       const waiting = C.seats.filter(s => s.g && ['ask', 'order', 'refused'].includes(s.g.st));
-      busy = waiting.length >= 2 || waiting.some(s => s.g.pat < 0.4) || C.queue.length >= 2;
+      load += waiting.length + C.queue.length + waiting.filter(s => s.g.pat < 0.4).length;
     }
-    if (kitchenHere() && K) busy = busy || K.tickets.filter(t => !t.done).length >= 2;
+    if (kitchenHere() && K) load = Math.max(load, K.tickets.filter(t => !t.done).length * 1.5);
   }
-  if (busy) busyT = G.clock;
-  setMusic(G.clock - busyT < 4 && busyT ? 'rush' : 'play', N.n);
+  // one guest waiting is normal; it heats up from two, and is full speed at about five things at once
+  setMusic('play', N.n, Math.max(0, Math.min(1, (load - 1) / 4)));
 }
 export function hudTick() {
   if (!G.NIGHT || !C) return;
