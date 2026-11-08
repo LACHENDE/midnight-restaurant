@@ -46,32 +46,8 @@ function makeCard(W: number, H: number): Card {
   const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat); m.visible = false; scene.add(m);
   return { cv, g: cv.getContext('2d')!, tex, m, mat, W, H, due: 0 };
 }
-/** A drawing that the stall's lights shade as if it were round: the normal is worked out on the graphics card from the
- * picture itself, every frame (so animated clips work): blurred outlines (the picture's alpha at a few mip levels) make a
- * soft pillow shape, the picture's light and dark add the folds. A little of the picture's own colour always shows. */
-export const CARD_LIGHT = { bump: 10.0, detail: 0.04, key: 0.6, warm: 0.8, cool: 0.65 };
-function litCard(tex: THREE.Texture) {
-  const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.02 });
-  mat.onBeforeCompile = sh => {
-    for (const k of ['bump', 'detail', 'key', 'warm', 'cool'] as const) sh.uniforms[k] = { value: CARD_LIGHT[k] };
-    sh.fragmentShader = sh.fragmentShader.replace('uniform float opacity;', 'uniform float opacity;\nuniform float bump, detail, key, warm, cool;')
-      .replace('#include <map_fragment>', `#include <map_fragment>
-      {
-        vec2 ts = 1.0 / vec2(textureSize(map, 0));
-        #define LUM(c) dot(c, vec3(0.3, 0.59, 0.11))
-        #define HH(o) (0.2 * textureLod(map, vMapUv + (o), 3.0).a + 0.35 * textureLod(map, vMapUv + (o), 5.0).a + 0.45 * textureLod(map, vMapUv + (o), 6.5).a + detail * LUM(textureLod(map, vMapUv + (o), 1.5).rgb))
-        vec2 e = ts * 7.0;
-        float hx = HH(vec2(e.x, 0.0)) - HH(vec2(-e.x, 0.0)), hy = HH(vec2(0.0, e.y)) - HH(vec2(0.0, -e.y));
-        vec3 n = normalize(vec3(-hx * bump, -hy * bump, 1.0));
-        // a main light from the upper left rounds the body; a warm lantern rim on the left edges, a cool moon rim on the right
-        float shade = (1.0 - key) + key * 1.35 * max(dot(n, normalize(vec3(-0.55, 0.55, 0.62))), 0.0);
-        vec3 rimW = vec3(1.0, 0.58, 0.28) * warm * pow(max(dot(n, normalize(vec3(-1.0, 0.1, 0.25))), 0.0), 2.0);
-        vec3 rimC = vec3(0.45, 0.65, 1.0) * cool * pow(max(dot(n, normalize(vec3(1.0, 0.25, 0.2))), 0.0), 2.0);
-        diffuseColor.rgb = diffuseColor.rgb * shade + (rimW + rimC) * diffuseColor.rgb * 1.6;
-      }`);
-  };
-  return mat;
-}
+/** the plain drawing, unlit, exactly as in 2D */
+function litCard(tex: THREE.Texture) { return new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.02, color: '#F2E9E1' }); }
 /** stand card c so the stage rectangle (x0, y0, W, H) lands on screen exactly, at the depth of the 3D point `at` */
 function placeCard(c: Card, x0: number, y0: number, at: THREE.Vector3) {
   const fwd = V(0, 0, -1).applyQuaternion(cam.quaternion), D = at.clone().sub(cam.position).dot(fwd);
@@ -168,9 +144,6 @@ function build() {
   const sc = key.shadow.camera as THREE.OrthographicCamera; sc.left = -4; sc.right = 4; sc.top = 3; sc.bottom = -3; sc.near = 0.5; sc.far = 16;
   scene.add(key, key.target);
   const moon = new THREE.DirectionalLight('#7FA8FF', 1.1); moon.position.set(2, 6, 5); scene.add(moon);
-  // for the guests: a warm side light from the left lantern, a cool rim from the right
-  const side = new THREE.DirectionalLight('#FFA860', 2.4); side.position.set(-5, -2.5, 2.2); side.target.position.set(0, guestY, 1.2); scene.add(side, side.target);
-  const rimR = new THREE.DirectionalLight('#8FB6FF', 2.2); rimR.position.set(5, -0.5, 2.5); rimR.target.position.set(0, guestY, 1.2); scene.add(rimR, rimR.target);
   SCENES.push(scene);
 }
 
