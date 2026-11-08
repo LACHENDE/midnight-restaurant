@@ -1,5 +1,5 @@
-// The counter in real 3D (3d.html): the stall from the guests' side of the counter, the rainy street behind, chunky toy
-// guests with the game's own drawn faces (painted live onto their heads), the pass from the kitchen, cups, bowls, coins.
+// The counter in real 3D (3d.html): the stall from the guests' side of the counter, the rainy street behind, the guests
+// as the owner's drawings (with Ken's clips) on cards standing in the stall, the pass from the kitchen, cups, bowls, coins.
 // Like the kitchen, every object stands where its stage point projects, so the 2D taps and drags hit it unchanged.
 import * as THREE from 'three';
 import { G } from '../game/G';
@@ -13,6 +13,8 @@ import { LOOKS, NIGHTS } from '../data/content';
 import { T, TAU, clamp } from '../core/env';
 import { freeSeat, judge } from '../game/counter';
 import { M, MAT, mesh, rbox, lathe, cyl, ball, torus, makeBowl, fillBowl, canvasTex, softTex, drawScene, SCENES, add, type Bowl3 } from './kitchen3d';
+import { drawGuest } from '../render/shapes';
+import { kenOn, kenClip, kenLen, kenLeave, KSP } from '../render/stage';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const Z0 = 0.9;
@@ -32,49 +34,57 @@ const CM = {
 const teapotTex = canvasTex(128, 32, g => { g.fillStyle = '#FAF8F3'; g.fillRect(0, 0, 128, 32); g.strokeStyle = '#2E5BB8'; g.lineWidth = 3; for (let k = 0; k < 3; k++) { g.beginPath(); for (let x = 0; x <= 128; x += 4) g.lineTo(x, 10 + k * 7 + Math.sin(x / 8) * 2.5); g.stroke(); } });
 const signTex = canvasTex(64, 256, g => { g.fillStyle = '#C8332A'; g.fillRect(0, 0, 64, 256); g.fillStyle = '#FFF4E2'; g.font = '900 44px "M PLUS Rounded 1c", sans-serif'; g.textAlign = 'center'; ['ラ', 'ー', 'メ', 'ン'].forEach((c, i) => g.fillText(c, 32, 50 + i * 58)); });
 
-// ---------- a chunky toy guest ----------
-interface Toy { g: THREE.Group; head: THREE.Group; arm: THREE.Group; face: THREE.Mesh; fc: HTMLCanvasElement; key: string; who: string; mats: THREE.Material[] }
-function makeToy(who: string, k = 1): Toy {
-  const L = LOOKS[who] || LOOKS.haru, g = new THREE.Group(), mats: THREE.Material[] = [];
-  const mm = (c: string, r = 0.6, extra = {}) => { const m = M(c, r, 0, { transparent: true, ...extra }); mats.push(m); return m; };
-  const coat = mm(L.coat, 0.65), skin = mm(L.skin, 0.55, { sheen: 0.3 }), hairM = mm(L.hair, 0.45, { clearcoat: 0.3 }), collar = mm('#FFF1DA', 0.6);
-  const body = lathe([[0, 0], [0.3 * k, 0], [0.33 * k, 0.12 * k], [0.3 * k, 0.4 * k], [0.2 * k, 0.52 * k], [0, 0.54 * k]], coat, 32); add(body, g);
-  const col = rbox(0.16 * k, 0.06 * k, 0.16 * k, collar, 0.03 * k); col.position.set(0, -0.27 * k, 0.4 * k); add(col, g);
-  const armL = ball(0.1 * k, coat, 1, 1.2, 1); armL.position.set(-0.3 * k, -0.12 * k, 0.24 * k); add(armL, g);
-  const handL = ball(0.07 * k, skin); handL.position.set(-0.24 * k, -0.28 * k, 0.16 * k); add(handL, g);
-  const arm = new THREE.Group(); arm.position.set(0.3 * k, -0.05 * k, 0.36 * k); add(arm, g);
-  const armR = ball(0.1 * k, coat, 1, 1, 1.3); armR.position.set(0, -0.06 * k, -0.08 * k); add(armR, arm);
-  const handR = ball(0.07 * k, skin); handR.position.set(-0.05 * k, -0.2 * k, -0.18 * k); add(handR, arm); arm.userData.hand = handR;
-  const head = new THREE.Group(); head.position.set(0, 0, 0.82 * k); add(head, g);
-  add(ball(0.33 * k, skin, 1, 0.92, 0.92), head);
-  for (const s of [-1, 1]) { const e = ball(0.07 * k, skin); e.position.set(s * 0.32 * k, 0, 0); add(e, head); }
-  // hair by style
-  const cap = ball(0.355 * k, hairM, 1, 0.98, 0.85); cap.position.set(0, 0.03 * k, 0.07 * k); add(cap, head);
-  const bang = ball(0.2 * k, hairM, 1.5, 0.5, 0.42); bang.position.set(0, -0.24 * k, 0.2 * k); add(bang, head);
-  if (L.style === 'pony') { const b = ball(0.14 * k, hairM); b.position.set(0, 0.15 * k, 0.36 * k); add(b, head); const bow = ball(0.07 * k, MAT.red, 1.4, 0.8, 0.8); bow.position.set(-0.12 * k, 0.05 * k, 0.33 * k); add(bow, head); }
-  if (L.style === 'cap') { const c = ball(0.37 * k, mm('#2E3A66', 0.8), 1, 1, 0.8); c.position.z = 0.1 * k; add(c, head); const brim = torus(0.33 * k, 0.05 * k, mm('#25305A', 0.8)); brim.position.z = 0.06 * k; add(brim, head); }
-  if (L.style === 'bob' || L.style === 'long') for (const s of [-1, 1]) { const side = rbox(0.12 * k, 0.3 * k, (L.style === 'long' ? 0.6 : 0.38) * k, hairM, 0.05 * k); side.position.set(s * 0.3 * k, 0.04 * k, (L.style === 'long' ? -0.14 : -0.04) * k); add(side, head); }
-  if (L.style === 'long') { const back = rbox(0.56 * k, 0.12 * k, 0.62 * k, hairM, 0.05 * k); back.position.set(0, 0.24 * k, -0.14 * k); add(back, head); }
-  if (L.style === 'spiky') for (let i = 0; i < 6; i++) { const sp = cyl(0.08 * k, 0.18 * k, hairM, 6, 0.005); sp.rotation.set(0.6 * Math.cos(i), 0.6 * Math.sin(i * 1.3), 0); sp.position.set(Math.cos(i * 1.05) * 0.18 * k, 0.05 * k + Math.sin(i * 1.05) * 0.1 * k, 0.33 * k); add(sp, head); }
-  // the face: the game's own face() painted onto a little picture on the front of the head
-  const fc = document.createElement('canvas'); fc.width = fc.height = 128;
-  const tex = new THREE.CanvasTexture(fc); tex.colorSpace = THREE.SRGBColorSpace;
-  const fm = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }); mats.push(fm);
-  const fp = new THREE.Mesh(new THREE.PlaneGeometry(0.46 * k, 0.46 * k), fm); fp.rotation.x = Math.PI / 2; fp.position.set(0, -0.318 * k, -0.04 * k); add(fp, head);
-  g.traverse(o => { if ((o as THREE.Mesh).isMesh && o !== fp) { (o as THREE.Mesh).castShadow = true; } });
-  return { g, head, arm, face: fp, fc, key: '', who, mats };
+// ---------- the guests: the owner's drawings (and Ken's clips), drawn by the game onto cards standing in the stall ----------
+// A card faces the camera at the guest's depth, sized so the drawing lands exactly where the 2D game would put it;
+// the counter in front hides the lower half, as in 2D. Cards redraw about 20 times a second.
+interface Card { cv: HTMLCanvasElement; g: CanvasRenderingContext2D; tex: THREE.CanvasTexture; m: THREE.Mesh; mat: THREE.MeshBasicMaterial; W: number; H: number; due: number }
+const PX = 1.5; // canvas pixels per stage unit
+function makeCard(W: number, H: number): Card {
+  const cv = document.createElement('canvas'); cv.width = Math.round(W * PX); cv.height = Math.round(H * PX);
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+  const mat = litCard(tex);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat); m.visible = false; scene.add(m);
+  return { cv, g: cv.getContext('2d')!, tex, m, mat, W, H, due: 0 };
 }
-function paintFace(t: Toy, mood: string, seed: number) {
-  const blink = (G.clock + seed) % 3.7 < 0.12, key = mood + blink;
-  if (key === t.key) return; t.key = key;
-  const g = t.fc.getContext('2d')!; g.clearRect(0, 0, 128, 128); g.save(); g.translate(64, 52); g.scale(1.45, 1.45);
-  face(g, mood === 'ask' ? '' : mood, { t: G.clock, seed }); g.restore();
-  (t.face.material as THREE.MeshBasicMaterial).map!.needsUpdate = true;
+/** A drawing that the stall's lights shade as if it were round: the normal is worked out on the graphics card from the
+ * picture itself, every frame (so animated clips work): blurred outlines (the picture's alpha at a few mip levels) make a
+ * soft pillow shape, the picture's light and dark add the folds. A little of the picture's own colour always shows. */
+export const CARD_LIGHT = { bump: 10.0, detail: 0.04, key: 0.6, warm: 0.8, cool: 0.65 };
+function litCard(tex: THREE.Texture) {
+  const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.02 });
+  mat.onBeforeCompile = sh => {
+    for (const k of ['bump', 'detail', 'key', 'warm', 'cool'] as const) sh.uniforms[k] = { value: CARD_LIGHT[k] };
+    sh.fragmentShader = sh.fragmentShader.replace('uniform float opacity;', 'uniform float opacity;\nuniform float bump, detail, key, warm, cool;')
+      .replace('#include <map_fragment>', `#include <map_fragment>
+      {
+        vec2 ts = 1.0 / vec2(textureSize(map, 0));
+        #define LUM(c) dot(c, vec3(0.3, 0.59, 0.11))
+        #define HH(o) (0.2 * textureLod(map, vMapUv + (o), 3.0).a + 0.35 * textureLod(map, vMapUv + (o), 5.0).a + 0.45 * textureLod(map, vMapUv + (o), 6.5).a + detail * LUM(textureLod(map, vMapUv + (o), 1.5).rgb))
+        vec2 e = ts * 7.0;
+        float hx = HH(vec2(e.x, 0.0)) - HH(vec2(-e.x, 0.0)), hy = HH(vec2(0.0, e.y)) - HH(vec2(0.0, -e.y));
+        vec3 n = normalize(vec3(-hx * bump, -hy * bump, 1.0));
+        // a main light from the upper left rounds the body; a warm lantern rim on the left edges, a cool moon rim on the right
+        float shade = (1.0 - key) + key * 1.35 * max(dot(n, normalize(vec3(-0.55, 0.55, 0.62))), 0.0);
+        vec3 rimW = vec3(1.0, 0.58, 0.28) * warm * pow(max(dot(n, normalize(vec3(-1.0, 0.1, 0.25))), 0.0), 2.0);
+        vec3 rimC = vec3(0.45, 0.65, 1.0) * cool * pow(max(dot(n, normalize(vec3(1.0, 0.25, 0.2))), 0.0), 2.0);
+        diffuseColor.rgb = diffuseColor.rgb * shade + (rimW + rimC) * diffuseColor.rgb * 1.6;
+      }`);
+  };
+  return mat;
 }
-function setAlpha(t: Toy, a: number) { for (const m of t.mats) (m as any).opacity = a; }
-
+/** stand card c so the stage rectangle (x0, y0, W, H) lands on screen exactly, at the depth of the 3D point `at` */
+function placeCard(c: Card, x0: number, y0: number, at: THREE.Vector3) {
+  const fwd = V(0, 0, -1).applyQuaternion(cam.quaternion), D = at.clone().sub(cam.position).dot(fwd);
+  const d = ray(x0 + c.W / 2, y0 + c.H / 2), unit = (2 * D * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2))) / VH;
+  c.m.position.copy(cam.position).addScaledVector(d, D / d.dot(fwd)); c.m.quaternion.copy(cam.quaternion); c.m.scale.set(c.W * unit, c.H * unit, 1); c.m.visible = true;
+}
+/** redraw a card (draw gets a context set to stage units, origin at x0, y0) */
+function paintCard(c: Card, x0: number, y0: number, draw: (g: CanvasRenderingContext2D) => void, force = false) {
+  if (!force && G.clock < c.due) return; c.due = G.clock + 0.05;
+  const g = c.g; g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, c.cv.width, c.cv.height); g.setTransform(PX, 0, 0, PX, -x0 * PX, -y0 * PX); draw(g); c.tex.needsUpdate = true;
+}
 // ---------- the scene ----------
-let seatToys: (Toy | null)[] = [], queueToys = new Map<number, Toy>(), heldToy: Toy | null = null;
+let seatCards: Card[] = [], queueCards = new Map<number, Card>();
 let seatBowls: Bowl3[] = [], passBowls: Bowl3[] = [], heldBowl: Bowl3, cups: THREE.Group[] = [], coins: THREE.Group[] = [], stains: THREE.Mesh[] = [];
 let teapot: THREE.Group, teapotAt = V(), cloth: THREE.Group, clothAt = V(), stream: THREE.Mesh, guestY = 0, streetY = 0;
 const rain: THREE.LineSegments[] = [], steam: THREE.Sprite[] = [];
@@ -158,13 +168,15 @@ function build() {
   const sc = key.shadow.camera as THREE.OrthographicCamera; sc.left = -4; sc.right = 4; sc.top = 3; sc.bottom = -3; sc.near = 0.5; sc.far = 16;
   scene.add(key, key.target);
   const moon = new THREE.DirectionalLight('#7FA8FF', 1.1); moon.position.set(2, 6, 5); scene.add(moon);
+  // for the guests: a warm side light from the left lantern, a cool rim from the right
+  const side = new THREE.DirectionalLight('#FFA860', 2.4); side.position.set(-5, -2.5, 2.2); side.target.position.set(0, guestY, 1.2); scene.add(side, side.target);
+  const rimR = new THREE.DirectionalLight('#8FB6FF', 2.2); rimR.position.set(5, -0.5, 2.5); rimR.target.position.set(0, guestY, 1.2); scene.add(rimR, rimR.target);
   SCENES.push(scene);
 }
 
 // ---------- every frame ----------
 const dragOf = (k: string) => { for (const it of PTRS.values()) if ((it as any).kind === k) return it as any; return null; };
 const heldAt = (it: any, z = Z0 + 0.35) => atZ(it.x, it.y - LIFT, z);
-function toy(map: Map<number, Toy>, id: number, who: string, k: number) { let t = map.get(id); if (!t || t.who !== who) { if (t) scene.remove(t.g); t = makeToy(who, k); add(t.g, scene); map.set(id, t); } return t; }
 function puff(at: THREE.Vector3) { const s = steam.find(s => s.userData.life >= 1.4); if (s) { s.position.copy(at); s.userData = { life: 0 }; } }
 function moodOf(gg: any) {
   return gg.st === 'eat' ? 'eat' : gg.st === 'leave' ? (gg.sad ? 'hmm' : 'happy') : gg.st === 'refused' ? 'hmm' : gg.happyT > 0 ? 'happy' : gg.st === 'ask' ? 'ask' : '';
@@ -172,37 +184,35 @@ function moodOf(gg: any) {
 function sync(dt: number) {
   const t = G.clock;
   rain.forEach((r, i) => { r.position.z = -((t * 2 + i / 3) % 1) * 0.5; });
-  // guests at their seats
+  // guests at their seats: the same placing, size, fading and clips as the 2D counter
   const dg = dragOf('guest'), pd = dragOf('pbowl'), pb = pd && C.pass.find((b: any) => b.id === pd.id);
   C.seats.forEach((s: any, i: number) => {
-    const gg = s.g; let tg = seatToys[i];
-    if (!gg) { if (tg) { scene.remove(tg.g); seatToys[i] = null; } return; }
-    if (!tg || tg.who !== gg.who) { if (tg) scene.remove(tg.g); tg = seatToys[i] = makeToy(gg.who, 0.8); add(tg.g, scene); }
-    let x = s.x, k = 1, a = 1, hop = 0;
-    if (gg.st === 'walk') { const q = Math.min(1, gg.t / 0.6); x = gg.from + (s.x - gg.from) * q; k = 0.6 + 0.4 * q; hop = Math.sin(q * Math.PI) * 0.25; }
-    if (gg.st === 'leave') { a = Math.max(0, 1 - gg.t / 1.4); x = s.x + gg.t * 60; }
-    const base = atY(x, 330, guestY); tg.g.position.set(base.x, guestY, Z0 - 0.26 + hop); tg.g.scale.setScalar(k);
-    setAlpha(tg, a); tg.g.visible = a > 0.02;
-    const mood = moodOf(gg); paintFace(tg, mood, gg.who.length * 0.61);
+    const gg = s.g, c = seatCards[i] || (seatCards[i] = makeCard(380, 340));
+    if (!gg) { c.m.visible = false; return; }
+    const ken = kenOn(gg); let x = s.x, y = 318, sc = 1, a = 1;
+    if (gg.st === 'walk') { const k = Math.min(1, gg.t / (ken ? kenLen('arrive') : 0.6)); x = gg.from + (s.x - gg.from) * k; y = 286 + (318 - 286) * k - (ken ? 0 : Math.sin(k * Math.PI) * 30); sc = 0.5 + 0.5 * k; }
+    if (gg.st === 'leave' && ken) { const walk = gg.t - kenLen(gg.sad ? 'furious' : 'bye') / KSP, end = kenLeave(gg); if (walk > 0) x = s.x + walk * 170; a = clamp((end - gg.t) / 0.5, 0, 1); }
+    else if (gg.st === 'leave') { a = Math.max(0, 1 - gg.t / 1.4); y = 318 + gg.t * 10; }
     gg.hover = !!(pb && gg.st === 'order' && Math.abs(pd.x - s.x) < 110 && pd.y > 150 && !judge(pb, gg.o).ok);
-    tg.arm.rotation.x = mood === 'ask' ? -2.4 + Math.sin(t * 8) * 0.15 : 0;
-    tg.head.position.z = 0.8 * 0.82 + (mood === 'eat' ? Math.abs(Math.sin(t * 8)) * 0.03 : Math.sin(t * 1.6 + i) * 0.008);
-    tg.head.rotation.y = gg.hover ? Math.sin(t * 9) * 0.2 : 0;
+    const mood = moodOf(gg), x0 = s.x - 190, y0 = 318 - 290;
+    paintCard(c, x0, y0, g => drawGuest(g, LOOKS[gg.who], x, y, sc, mood, { t: G.clock, bob: gg.st === 'eat' && !ken ? Math.sin(G.clock * 8) * 1.5 : 0, clip: ken ? kenClip(gg) : null }));
+    c.mat.opacity = a; placeCard(c, x0, y0, atY(s.x, 300, guestY));
   });
-  // guests waiting in the rain under umbrellas
+  // guests waiting in the rain, under their umbrellas
   const seen = new Set<number>();
   C.queue.forEach((q: any) => {
     if (dg && dg.id === q.id) return; seen.add(q.id);
-    const tq = toy(queueToys, q.id, q.who, 0.72), p = atZ(q.x, 268, 0.62);
-    tq.g.position.set(p.x, p.y, 0); tq.g.visible = true;
-    const D = C.door, inDoor = D && q.grp === D.grp; paintFace(tq, inDoor && D.conf > 0 ? 'hmm' : inDoor && D.happy > 0 ? 'happy' : '', q.id);
-    if (!tq.g.userData.umb) { const u = new THREE.Group(); const c = mesh(new THREE.SphereGeometry(0.55, 24, 8, 0, TAU, 0, Math.PI / 2.2), CM.umb[q.id % 4]); add(c, u); const st = cyl(0.012, 0.75, MAT.black, 6); st.position.z = -0.38; add(st, u); u.position.set(0.05, 0, 1.05); add(u, tq.g); tq.g.userData.umb = u; }
-    tq.g.position.z = Math.abs(Math.sin(t * 2 + q.id)) * 0.02;
+    let c = queueCards.get(q.id); if (!c) { c = makeCard(160, 210); queueCards.set(q.id, c); }
+    const D = C.door, inDoor = D && q.grp === D.grp, qm = inDoor && D.conf > 0 ? 'hmm' : inDoor && D.happy > 0 ? 'happy' : '';
+    const x0 = q.x - 80, y0 = 120, bob = Math.sin(G.clock * 2 + q.id) * 1.2;
+    paintCard(c, x0, y0, g => {
+      drawGuest(g, LOOKS[q.who], q.x, 286 + bob, 0.5, qm, { clip: { id: qm === 'hmm' ? 'confused' : 'idle', t: G.clock + q.id, loop: true } });
+      g.fillStyle = ['#E36A5A', '#6C8BE0', '#F2C94C', '#7FBF8F'][q.id % 4]; g.beginPath(); g.ellipse(q.x, 286 - 104 + bob, 40, 16, 0, Math.PI, TAU); g.fill();
+      g.strokeStyle = '#3A2A20'; g.lineWidth = 2; g.beginPath(); g.moveTo(q.x, 286 - 104 + bob); g.lineTo(q.x, 286 - 40 + bob); g.stroke();
+    });
+    placeCard(c, x0, y0, atZ(q.x, 268, 0.62));
   });
-  for (const [id, tq] of queueToys) if (!seen.has(id)) { scene.remove(tq.g); queueToys.delete(id); }
-  // a guest being led to a seat
-  if (dg) { const q = C.queue.find((q: any) => q.id === dg.id); if (q) { if (!heldToy || heldToy.who !== q.who) { if (heldToy) scene.remove(heldToy.g); heldToy = makeToy(q.who, 0.75); add(heldToy.g, scene); } const p = atY(dg.x, dg.y + 40, guestY); heldToy.g.position.set(p.x, guestY, p.z - 0.6); heldToy.g.visible = true; paintFace(heldToy, 'happy', 1); } }
-  else if (heldToy) heldToy.g.visible = false;
+  for (const [id, c] of queueCards) if (!seen.has(id)) { scene.remove(c.m); c.tex.dispose(); queueCards.delete(id); }
   // bowls in front of the guests, cups, coins, spills
   const dd = dragOf('refused'), di = dragOf('dish');
   C.seats.forEach((s: any, i: number) => {
@@ -240,10 +250,10 @@ function words() {
   C.seats.forEach((s: any) => {
     const gg = s.g;
     if (!gg) { if (dk('guest') && freeSeat() === s.i) { g.strokeStyle = 'rgba(94,211,176,.95)'; g.lineWidth = 3; g.setLineDash([8, 6]); rr(g, s.x - 62, 150, 124, 170, 24); g.stroke(); g.setLineDash([]); } return; }
-    if (gg.st !== 'walk') { g.fillStyle = 'rgba(255,244,226,.9)'; g.font = '900 12px "M PLUS Rounded 1c"'; g.textAlign = 'left'; g.fillText(LOOKS[gg.who].nm, s.x + 56, 140); g.textAlign = 'center'; }
-    if (gg.st === 'ask') { const p = 1 + Math.sin(G.clock * 6) * 0.06; g.save(); g.translate(s.x + 70, 132); g.scale(p, p); rr(g, -22, -18, 44, 32, 12); g.fillStyle = '#FFF4E2'; g.fill(); g.fillStyle = '#D8452F'; g.font = '900 22px "M PLUS Rounded 1c"'; g.fillText('！', 0, 7); g.restore(); }
+    if (gg.st !== 'walk') { g.fillStyle = 'rgba(255,244,226,.9)'; g.font = '900 12px "M PLUS Rounded 1c"'; g.textAlign = 'right'; g.fillText(LOOKS[gg.who].nm, s.x - 84, 168); g.textAlign = 'center'; }
+    if (gg.st === 'ask') { const p = 1 + Math.sin(G.clock * 6) * 0.06; g.save(); g.translate(s.x + 96, 140); g.scale(p, p); rr(g, -22, -18, 44, 32, 12); g.fillStyle = '#FFF4E2'; g.fill(); g.fillStyle = '#D8452F'; g.font = '900 22px "M PLUS Rounded 1c"'; g.fillText('！', 0, 7); g.restore(); }
     if (gg.st === 'leave' && !gg.sad) bubble(g, s.x, 110, C.last === gg.who && C.next >= NIGHTS[C.n - 1].guests.length ? 'ごちそうさまでした！' : 'ごちそうさま！');
-    if ((gg.st === 'order' || gg.st === 'refused') && !NIGHTS[C.n - 1].gentle) { const p = clamp(gg.pat, 0, 1); g.strokeStyle = p > 0.5 ? 'rgba(94,211,176,.9)' : p > 0.25 ? 'rgba(240,176,78,.95)' : 'rgba(224,106,78,1)'; g.lineWidth = 4; g.beginPath(); g.arc(s.x, 206, 62, -Math.PI / 2, -Math.PI / 2 + p * TAU); g.stroke(); }
+    if ((gg.st === 'order' || gg.st === 'refused') && !NIGHTS[C.n - 1].gentle) { const p = clamp(gg.pat, 0, 1); g.strokeStyle = p > 0.5 ? 'rgba(94,211,176,.9)' : p > 0.25 ? 'rgba(240,176,78,.95)' : 'rgba(224,106,78,1)'; g.lineWidth = 4; g.beginPath(); g.arc(s.x, 226, 84, -Math.PI / 2, -Math.PI / 2 + p * TAU); g.stroke(); }
     g.strokeStyle = 'rgba(94,211,176,.9)'; g.lineWidth = 3; g.setLineDash([6, 5]);
     if (dk('teapot') && gg.st !== 'walk' && gg.st !== 'leave') { el(g, cupX(s), CUPY, 30, 24); g.stroke(); }
     if (dk('pbowl') && (gg.st === 'order' || gg.st === 'refused') && !s.bowl) { el(g, s.x, 372, 74, 28); g.stroke(); }
@@ -251,6 +261,8 @@ function words() {
     if (s.dirty) { const ph = (G.clock * 1.2) % 1; g.strokeStyle = `rgba(94,211,176,${(0.8 * (1 - ph)).toFixed(2)})`; g.lineWidth = 3; g.setLineDash([7, 7]); g.lineDashOffset = -ph * 28; g.beginPath(); g.moveTo(s.x - 64, 412); g.lineTo(s.x + 64, 412); g.stroke(); g.setLineDash([]); }
     if (s.bowl?.refused && !dk('refused')) { g.fillStyle = '#D8452F'; rr(g, s.x - 40, 404, 80, 18, 9); g.fill(); g.fillStyle = '#FFF4E2'; g.font = '900 10px "M PLUS Rounded 1c"'; g.fillText(T('send it back', '退回厨房'), s.x, 417); }
   });
+  const dg = dk('guest'), lead = dg && C.queue.find((q: any) => q.id === dg.id);
+  if (lead) drawGuest(g, LOOKS[lead.who], dg.x, dg.y - LIFT + 40, 0.62, '', {});
   if (dk('refused') || dk('dish')) { g.strokeStyle = 'rgba(94,211,176,.95)'; g.lineWidth = 3; g.setLineDash([8, 6]); if (dk('refused')) rr(g, 40, 214, 214, 140, 10); else rr(g, CL.tub.x - 50, CL.tub.y - 24, 100, 52, 12); g.stroke(); g.setLineDash([]); }
 }
 function render(dt: number) { sync(dt); drawScene(scene, cam, dt); if (C) words(); }
