@@ -5,6 +5,7 @@ import { C, K, meCook } from '../game/night-state';
 import { ICON } from '../render/shapes';
 import { LOOKS, WORDS, known, mean } from '../data/content';
 import { SFX } from '../audio/sfx';
+import { cue } from '../audio/music';
 import { toS } from '../render/stage';
 
 export let tixK = '',
@@ -82,7 +83,7 @@ let nwT = 0; // the new-word card's hide timer
 export function newWord(w) {
   const box = $('#nw');
   box.innerHTML = `<div class="newword"><div class="k">${T('NEW WORD', '新单词')}</div><img src="${ICON[w]}" alt=""><b>${WORDS[w].k}</b><small>${WORDS[w].ro} · ${esc(mean(w))}</small></div>`;
-  SFX.open();
+  cue('word');
   clearTimeout(nwT);
   nwT = setTimeout(() => {
     box.innerHTML = '';

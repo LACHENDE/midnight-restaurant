@@ -3,7 +3,6 @@
 export let AC = null,
   MG = null,
   NOISE = null,
-  RAIN = null,
   BOIL = null;
 export function audio() {
   try {
@@ -65,24 +64,7 @@ export function tn(fr, dur, o: any = {}) {
 }
 export function loops() {
   try {
-    // rain on the awning, and the boiling pot (only the kitchen hears that one)
-    const r = AC.createBufferSource(),
-      hp = AC.createBiquadFilter(),
-      lp = AC.createBiquadFilter(),
-      rg = AC.createGain();
-    r.buffer = NOISE;
-    r.loop = true;
-    hp.type = 'highpass';
-    hp.frequency.value = 500;
-    lp.type = 'lowpass';
-    lp.frequency.value = 3000;
-    rg.gain.value = 0.05;
-    r.connect(hp);
-    hp.connect(lp);
-    lp.connect(rg);
-    rg.connect(MG);
-    r.start();
-    RAIN = rg;
+    // the boiling pot (only the kitchen hears it); there is no rain sound, on purpose: it was tiring to listen to
     const b = AC.createBufferSource(),
       bf = AC.createBiquadFilter(),
       bg = AC.createGain();

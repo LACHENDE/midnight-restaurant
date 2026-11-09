@@ -32,6 +32,7 @@ import { kDump, kLift, kLower, kNest, kSlide, kTakeBack, kTop, kUntop, kitchenTi
 import { onNet, setLink } from './net/online';
 import { toCook, toCounter } from './net/messages';
 import { drawGuest } from './render/shapes';
+import { setMusic } from './audio/music';
 
 export let last = 0;
 export function frame(now) {
@@ -79,6 +80,22 @@ export function frame(now) {
   hintTick();
   domTick();
   hudTick();
+  musicTick();
+}
+// the song follows the night: calm on menus and while the link is down, cozy at play, a faster beat as guests pile up
+function musicTick() {
+  const N = G.NIGHT;
+  if (!N || N.ph !== 'run' || G.PAUSED) return setMusic('calm', N ? N.n : 1);
+  let load = 0;
+  if (!NIGHTS[N.n - 1].gentle) {
+    if (counterHere() && C) {
+      const waiting = C.seats.filter(s => s.g && ['ask', 'order', 'refused'].includes(s.g.st));
+      load += waiting.length + C.queue.length + waiting.filter(s => s.g.pat < 0.4).length;
+    }
+    if (kitchenHere() && K) load = Math.max(load, K.tickets.filter(t => !t.done).length * 1.5);
+  }
+  // one guest waiting is normal; it heats up from two, and is full speed at about five things at once
+  setMusic('play', N.n, Math.max(0, Math.min(1, (load - 1) / 4)));
 }
 export function hudTick() {
   if (!G.NIGHT || !C) return;

@@ -658,6 +658,27 @@ input.codein {
   box-shadow: 0 3px 10px rgba(10, 5, 2, 0.4);
   cursor: pointer;
 }
+.mus {
+  position: fixed;
+  /* top-left, just past the role chip and clear of the centred hint */
+  left: calc(max(10px, var(--sl)) + 124px);
+  top: calc(var(--st) + 10px);
+  z-index: 10;
+  width: 30px;
+  height: 30px;
+  font: 900 15px var(--ui);
+  color: var(--ink);
+  background: var(--cream);
+  border: 0;
+  border-radius: 50%;
+  box-shadow: 0 3px 10px rgba(10, 5, 2, 0.4);
+  cursor: pointer;
+  opacity: 0.85;
+}
+.mus.off {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
 .lang em {
   font-style: normal;
   color: var(--dim);

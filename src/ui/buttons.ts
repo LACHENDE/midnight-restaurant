@@ -7,6 +7,7 @@ import { NET_, meCounter } from '../game/night-state';
 import { NIGHTS } from '../data/content';
 import { RD, ROLE_CARDS, lobbyUI, readyUI, roomUI, ui } from './menus';
 import { audio } from '../audio/sfx';
+import { musicMuted, toggleMusic } from '../audio/music';
 import { linkState, maybeGo, netSend, onNet, toReady } from '../net/online';
 import { startNight } from '../game/flow';
 import { toast } from './overlays';
@@ -25,11 +26,16 @@ export function toastUI(t) {
 
 // runs once at start, after every module has loaded (main.ts calls these in order)
 export function init(): void {
+  $('#musBtn').classList.toggle('off', musicMuted());
   document.addEventListener('click', async e => {
     const b = (e.target as Element).closest('button');
     if (!b) return;
     const a = b.dataset.a;
     audio();
+    if (b.id === 'musBtn') {
+      b.classList.toggle('off', toggleMusic());
+      return;
+    }
     if (b.id === 'langBtn') {
       G.LANG = G.LANG === 'zh' ? 'en' : 'zh';
       try {
