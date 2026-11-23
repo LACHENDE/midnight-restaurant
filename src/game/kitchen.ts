@@ -7,7 +7,7 @@ import { PT, drips, sparkle, splash } from '../render/particles';
 import { T, rnd } from '../core/env';
 import { botHear, toCounter } from '../net/messages';
 import { bowlTopAt } from '../render/shapes';
-import { newWord, toast } from '../ui/overlays';
+import { banner, newWord, toast } from '../ui/overlays';
 import { noteAct } from './teach';
 
 export function doneOf(t) {
@@ -17,15 +17,39 @@ export function kRecv(m) {
   if (!K) return;
   if (m.t === 'order') {
     if (!K.tickets.some(t => t.cid === m.cid)) {
-      K.tickets.push({ cid: m.cid, o: null, who: m.who, done: false, at: G.clock });
+      K.tickets.push({ cid: m.cid, o: null, who: m.who, done: false, at: G.clock, hurry: !!m.hurry, lv: 0 });
       SFX.pop();
     }
+    return;
+  }
+  // the counter's phone runs the clock and the combo; the kitchen shows them
+  if (m.t === 'hud') {
+    K.hud = m;
+    return;
+  }
+  if (m.t === 'banner') {
+    if (meCook()) banner(m.k);
+    return;
+  }
+  // the guest gave up: their ticket is crossed out and comes down
+  if (m.t === 'gone') {
+    const t = K.tickets.find(t => t.cid === m.cid);
+    if (t) {
+      t.done = true;
+      t.gone = true;
+    }
+    botHear(m);
+    return;
+  }
+  if (m.t === 'pat') {
+    const t = K.tickets.find(t => t.cid === m.cid);
+    if (t) t.lv = m.lv;
     return;
   }
   if (m.t === 'ticket') {
     let t = K.tickets.find(t => t.cid === m.cid);
     if (!t) {
-      t = { cid: m.cid, o: null, who: m.who, done: false, at: G.clock };
+      t = { cid: m.cid, o: null, who: m.who, done: false, at: G.clock, hurry: !!m.hurry, lv: 0 };
       K.tickets.push(t);
     }
     if (!t.o) {

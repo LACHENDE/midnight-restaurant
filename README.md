@@ -28,6 +28,16 @@ The cook sees a "?" ticket when an order comes in, and the picture only once the
    - Two-topping orders, and なると (fish-cake swirl) arrives.
    - Guests have patience now. Tea helps, and the counter still controls how many guests come in.
 
+3. **At the door · 接客** (gentle): groups arrive, and the counter greets them, asks how many, and shows them in.
+4. **Rush hour** (3 seats, 3 minutes on the clock): guests keep coming, in calm stretches and **ラッシュ！** waves. The stars are yen, and the best score is kept.
+5. **The last train · 終電** (3 seats, 3 minutes): shorter patience, three-topping orders, and a final rush where everyone is in a hurry.
+
+**On every night with patience (2, 4, 5):**
+- **Combo:** right bowls in a row raise the bonus multiplier, ×2 from 3 in a row and ×3 from 6 (いいね！ → すごい！ → さいこう！ on both phones). A guest who leaves angry or a refused bowl breaks it (あ〜…).
+- **Speed:** the faster the bowl, the bigger the bonus.
+- **いそぎ guests** (rush nights): half the patience, double the bonus.
+- **The cook feels it too:** tickets turn orange, then red, as their guest loses patience, and come down crossed out if the guest gives up.
+
 Romaji and meanings step back once you've served a word three times (tap **?** to see them again). Earnings add up to the stall's savings and unlock small decorations: lanterns, a lucky cat, hydrangeas.
 
 ## Modes

@@ -12,10 +12,12 @@ import { newWord } from '../ui/overlays';
 import { noteAct } from './teach';
 import { sparkle } from '../render/particles';
 import { toCook } from '../net/messages';
+import { comboBreak, comboUp, floatYen, hudPush, patSecs, patTell, payFor, rushGuest, rushTick } from './rush';
 
 export const NOW_GUEST = () => NIGHTS[C.n - 1].guests;
 export function spawnGuest() {
   const N = NIGHTS[C.n - 1];
+  if (N.rush) return rushGuest();
   if (C.next >= N.guests.length) return;
   const grp = N.guests[C.next].grp,
     gsz = N.guests.filter(x => grp && x.grp === grp).length || 1;
@@ -60,11 +62,13 @@ export function cSeat(gid, si) {
     from: q.x,
     grp: q.grp,
     gsz: q.gsz,
+    hurry: !!q.hurry,
+    lv: 0,
   };
   s.cup = 0;
   SFX.pop();
   noteAct();
-  toCook({ t: 'guest', cid: q.id, teach: q.teach, who: q.who, nw: q.nw });
+  toCook({ t: 'guest', cid: q.id, teach: q.teach, who: q.who, nw: q.nw, hurry: !!q.hurry });
   if (q.nw) newWord(q.nw);
   return true;
 }
@@ -76,7 +80,7 @@ export function cTake(si) {
   g.t = 0;
   SFX.ding();
   noteAct();
-  toCook({ t: 'order', cid: g.id, who: g.who });
+  toCook({ t: 'order', cid: g.id, who: g.who, hurry: !!g.hurry });
   return true;
 }
 export function cSend(si) {
@@ -86,7 +90,7 @@ export function cSend(si) {
   g.sent = true;
   SFX.slide();
   noteAct();
-  toCook({ t: 'ticket', cid: g.id, o: g.o, who: g.who });
+  toCook({ t: 'ticket', cid: g.id, o: g.o, who: g.who, hurry: !!g.hurry });
   return true;
 }
 export function cTea(si, dt) {
@@ -128,7 +132,12 @@ export function cServe(pi, si) {
     g.st = 'eat';
     g.t = 0;
     g.q = r.q;
-    const pay = 500 + Math.round(r.q * 300) + (g.tea ? 60 : 0);
+    let pay = 500 + Math.round(r.q * 300) + (g.tea ? 60 : 0);
+    if (!NIGHTS[C.n - 1].gentle) {
+      comboUp();
+      pay = payFor(g, r.q);
+      floatYen(s.x, 336, pay);
+    }
     g.pay = pay;
     C.served++;
     C.quality += r.q;
@@ -145,6 +154,7 @@ export function cServe(pi, si) {
     g.t = 0;
     g.why = r;
     SFX.hmm();
+    if (!NIGHTS[C.n - 1].gentle) comboBreak();
     toCook({ t: 'result', cid: g.id, ok: false, why: r.why });
     noteAct();
   }
@@ -210,7 +220,8 @@ export function counterTick(dt) {
   const N = NIGHTS[C.n - 1];
   // guests arrive one at a time on the first night (the next comes when the last one starts eating); later, every so often, never more than two orders open
   const active = C.seats.filter(s => s.g && !EATING.has(s.g.st)).length + C.queue.length;
-  if (C.next < N.guests.length) {
+  if (N.rush) rushTick(dt);
+  else if (C.next < N.guests.length) {
     C.spawnT -= dt;
     if (N.door) {
       if (!C.queue.length && !C.door && C.spawnT <= 0) {
@@ -233,12 +244,14 @@ export function counterTick(dt) {
     q.wait += dt;
     const tx = CL.queue[i % 3].x;
     q.x += (tx - q.x) * Math.min(1, dt * 3);
-    if (!N.gentle && q.wait > 75) {
+    if (!N.gentle && q.wait > (N.rush ? 40 : 75)) {
       q.gone = true;
     }
   });
+  // on a rush night someone who gives up in the rain was never seated: a missed guest, not an angry one
   for (const q of C.queue.filter(q => q.gone)) {
-    C.left++;
+    if (N.rush) C.missed = (C.missed || 0) + 1;
+    else C.left++;
   }
   C.queue = C.queue.filter(q => !q.gone);
   for (const s of C.seats) {
@@ -255,13 +268,16 @@ export function counterTick(dt) {
       g.t = 0;
       SFX.pop();
     } else if ((g.st === 'ask' || g.st === 'order' || g.st === 'refused') && !N.gentle) {
-      g.pat -= dt / 85;
+      g.pat -= dt / patSecs(g);
+      patTell(g);
       if (g.pat <= 0) {
         g.st = 'leave';
         g.t = 0;
         g.sad = true;
         C.left++;
         if (s.bowl && s.bowl.refused) s.bowl = null;
+        comboBreak();
+        toCook({ t: 'gone', cid: g.id });
       }
     }
     if (g.st === 'eat' && ken) {
@@ -279,7 +295,7 @@ export function counterTick(dt) {
         s.bowl.eat = 1;
         g.st = 'pay';
         g.t = 0;
-        g.wallet = !N.gentle && C.next >= N.guests.length;
+        g.wallet = !N.gentle && !N.rush && C.next >= N.guests.length;
       }
     } else if (g.st === 'eat') {
       s.bowl.eat = Math.min(1, g.t / 4.2);
@@ -314,9 +330,10 @@ export function counterTick(dt) {
     }
   }
   // closing time: everyone served (or gone), and the counter clean
+  if (!N.gentle) hudPush();
   if (
     !C.done &&
-    C.next >= N.guests.length &&
+    (N.rush ? C.over : C.next >= N.guests.length) &&
     !C.queue.length &&
     C.seats.every(s => !seated(s) && !s.bowl && !s.coins && !s.dirty)
   ) {

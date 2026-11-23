@@ -11,6 +11,10 @@ export function botCookHear(m) {
   if (m.t === 'ticket') {
     if (!BK.q.some(x => x.cid === m.cid)) BK.q.push({ cid: m.cid, o: m.o.slice() });
   }
+  if (m.t === 'gone') {
+    BK.q = BK.q.filter(j => j.cid !== m.cid);
+    if (BK.busy && BK.busy.cid === m.cid) BK.busy = null;
+  }
   if (m.t === 'back') {
     BK.q = BK.q.filter(j => j.cid !== m.cid);
     if (BK.busy && BK.busy.cid === m.cid) {

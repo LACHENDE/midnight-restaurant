@@ -96,6 +96,17 @@ export function drawParticles(g) {
       g.fillRect(-p.size, -0.8, p.size * 2, 1.6);
       g.fillRect(-0.8, -p.size, 1.6, p.size * 2);
       g.restore();
+    } else if (p.k === 'txt') {
+      // the yen a bowl earned, floating up from the seat
+      g.globalAlpha = Math.min(1, a * 2);
+      g.font = `900 ${p.size}px "M PLUS Rounded 1c"`;
+      g.textAlign = 'center';
+      g.lineWidth = 5;
+      g.strokeStyle = '#3B2618';
+      g.strokeText(p.s, p.x, p.y);
+      g.fillStyle = p.c;
+      g.fillText(p.s, p.x, p.y);
+      g.textAlign = 'left';
     } else if (p.k === 'heart') {
       g.globalAlpha = Math.min(1, a * 1.5);
       g.fillStyle = '#FF7A9A';

@@ -162,6 +162,11 @@ export const SFX = {
   close() {
     [784, 659, 523, 392].forEach((f, i) => tn(f, 0.7, { type: 'triangle', g: 0.06, at: i * 0.16 }));
   },
+  // a rush starts: a quick rising call and the shop bell
+  rush() {
+    [587, 740, 880, 1175].forEach((f, i) => tn(f, 0.16, { type: 'square', g: 0.035, at: i * 0.07 }));
+    tn(1568, 0.8, { g: 0.06, at: 0.3 });
+  },
 };
 export const buzz = ms => {
   try {

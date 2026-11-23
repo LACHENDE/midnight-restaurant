@@ -23,7 +23,18 @@ export function domTick() {
     const k =
       K.tickets
         .map(
-          t => t.cid + ':' + (t.o ? t.o.join('+') : '?') + ':' + (t.done ? 1 : 0) + ':' + (t.ok === false ? 'x' : ''),
+          t =>
+            t.cid +
+            ':' +
+            (t.o ? t.o.join('+') : '?') +
+            ':' +
+            (t.done ? 1 : 0) +
+            ':' +
+            (t.ok === false ? 'x' : '') +
+            ':' +
+            (t.lv || 0) +
+            (t.hurry ? 'h' : '') +
+            (t.gone ? 'g' : ''),
         )
         .join('|') + G.LANG;
     if (k !== tixK) {
@@ -31,7 +42,7 @@ export function domTick() {
       $('#tix').innerHTML = K.tickets
         .map(
           t =>
-            `<div class="tk${t.done ? ' done' : ''}">${t.o ? t.o.map(w => `<img src="${ICON[w]}" alt=""><span>${WORDS[w].k}${known(w) ? '' : `<small>${WORDS[w].ro}</small>`}</span>`).join('') : `<span class="q">?</span><span><small>${T('order in: ask the counter', '有订单：问柜台')}</small>${esc(LOOKS[t.who] ? LOOKS[t.who].nm : '')}</span>`}${t.done ? '<span class="stamp">◎</span>' : ''}</div>`,
+            `<div class="tk${t.done ? ' done' : ''}${t.gone ? ' gone' : ''}${!t.done && t.lv ? ' lv' + t.lv : ''}">${t.hurry && !t.done ? '<span class="isogi">いそぎ</span>' : ''}${t.o ? t.o.map(w => `<img src="${ICON[w]}" alt=""><span>${WORDS[w].k}${known(w) ? '' : `<small>${WORDS[w].ro}</small>`}</span>`).join('') : `<span class="q">?</span><span><small>${T('order in: ask the counter', '有订单：问柜台')}</small>${esc(LOOKS[t.who] ? LOOKS[t.who].nm : '')}</span>`}${t.done ? `<span class="stamp">${t.gone ? '✕' : '◎'}</span>` : ''}</div>`,
         )
         .join('');
     }
@@ -77,6 +88,33 @@ export function whyText(r) {
   if (r.miss && r.miss.length) a.push(T('needs ', '少了 ') + r.miss.map(w => WORDS[w].k).join('・'));
   if (r.extra && r.extra.length) a.push(T("didn't order ", '没点 ') + r.extra.map(w => WORDS[w].k).join('・'));
   return a.join(' · ');
+}
+// a callout across the middle of the screen: the waves, closing time, and the combo
+const BAN = {
+  rush: ['ラッシュ！', ['Rush! Guests pour in', '高峰！客人涌进来'], 'big hot'],
+  last: ['終電ラッシュ！', ['The last train: everyone is in a hurry', '末班车：人人都赶时间'], 'big hot'],
+  close: ['閉店！', ['Closing time: no more guests, finish up', '打烊：不再进客，收尾吧'], 'big'],
+  iine: ['いいね！', ['Nice!', '不错！'], 'small'],
+  sugoi: ['すごい！ ×2', ['Amazing! Combo ×2', '厉害！连击 ×2'], 'mid'],
+  saikou: ['さいこう！ ×3', ['The best! Combo ×3', '最棒！连击 ×3'], 'mid hot'],
+  aa: ['あ〜…', ['Combo lost', '连击断了'], 'small sad'],
+};
+let banT: any = 0;
+export function banner(k) {
+  const b = BAN[k],
+    box = $('#banner');
+  if (!b || !box) return;
+  box.className = 'banner ' + b[2];
+  box.innerHTML = `<b>${b[0]}</b><small>${esc(T(b[1][0], b[1][1]))}</small>`;
+  void box.offsetWidth; // restart the pop
+  box.classList.add('on');
+  clearTimeout(banT);
+  banT = setTimeout(
+    () => {
+      box.className = 'banner';
+    },
+    k === 'iine' || k === 'aa' ? 1100 : 2000,
+  );
 }
 let nwT = 0; // the new-word card's hide timer
 export function newWord(w) {

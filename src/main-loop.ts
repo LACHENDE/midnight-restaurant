@@ -3,6 +3,7 @@ import { G } from './game/G';
 import { LINK } from './net/link';
 import { $, HUB, T, esc, store } from './core/env';
 import { C, K, NET_, cReset, counterHere, kReset, kitchenHere, meCook, meCounter } from './game/night-state';
+import { hudNow } from './game/rush';
 import { CL, KL } from './data/layout';
 import { DPR, KEN, OX, OY, S, VH, VW, ctx, cv, kenClip, toS, ART, HOOK3D } from './render/stage';
 import { HINT, hintTick } from './game/teach';
@@ -95,7 +96,37 @@ export function hudTick() {
   const N = NIGHTS[(G.NIGHT.n || 1) - 1],
     tot = N.guests.length,
     k = meCounter() ? C.served + ':' + C.next + ':' + C.left : 'c',
-    pr = $('#prog');
+    pr = $('#prog'),
+    H = counterHere() ? hudNow() : K && K.hud,
+    cb = $('#combo');
+  // the combo, on both phones (nights with patience)
+  const ck = !N.gentle && H && (H.x > 1 || H.k > 0) ? H.x + ':' + H.k + G.LANG : '';
+  if (cb.dataset.k !== ck) {
+    cb.dataset.k = ck;
+    cb.hidden = !ck;
+    if (ck)
+      cb.innerHTML = `<b>×${H.x}</b>${T('combo', '连击')} ${H.k}<span class="pips">${[3, 6]
+        .map(n => `<i class="${H.k >= n ? 'on' : ''}"></i>`)
+        .join('')}</span>`;
+    cb.className = 'chip' + (H && H.x >= 3 ? ' hot' : H && H.x >= 2 ? ' warm' : '');
+  }
+  // a rush night's clock, on both phones
+  if (N.rush) {
+    const rk = H ? H.s + ':' + H.w + ':' + H.o + G.LANG : '';
+    if (pr.dataset.k !== rk) {
+      pr.dataset.k = rk;
+      const m = Math.floor(Math.max(0, H ? H.s : N.rush.secs) / 60),
+        sec = String(Math.max(0, H ? H.s : N.rush.secs) % 60).padStart(2, '0');
+      pr.innerHTML =
+        H && H.o
+          ? `閉店 · ${T('finish up', '收尾')}`
+          : `${esc(T(N.name[0], N.name[1]))} · <b class="clock${H && H.s <= 10 ? ' low' : ''}">${m}:${sec}</b>${H && H.w ? `<span class="wave">${H.w === 2 ? '終電' : 'ラッシュ'}</span>` : ''}`;
+    }
+    pr.classList.toggle('side', meCook());
+    pr.hidden = false;
+    return;
+  }
+  pr.classList.remove('side');
   if (meCounter()) {
     if (pr.dataset.k !== k) {
       pr.dataset.k = k;
@@ -137,6 +168,7 @@ export function init(): void {
   }
   (window as any).__mr = {
     art: { drawGuest, LOOKS, KEN, ART }, // the drawing, for the look checks
+    bots: { botCook, botCounter }, // both stations by bot, for the balance checks
     role: () => G.ROLE,
     mode: () => G.MODE,
     K: () => K,

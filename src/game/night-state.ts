@@ -58,6 +58,13 @@ export function cReset(n) {
     bye: [],
     leftG: {},
     sk: { ok: 0, bad: 0 },
+    // rush nights and the combo
+    rt: 0,
+    over: false,
+    streak: 0,
+    bestStreak: 0,
+    mult: 1,
+    missed: 0,
   };
 }
 export function trayOpen(w) {

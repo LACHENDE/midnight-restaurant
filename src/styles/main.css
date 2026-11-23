@@ -727,3 +727,182 @@ input.codein {
 /* the 3D page: the WebGL kitchen under the 2D canvas, which only draws the words, the dial and the effects */
 #gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
 #gl[hidden] { display: none !important; }
+/* rush nights and the combo */
+#combo {
+  right: max(10px, var(--sr));
+  top: calc(var(--st) + 46px);
+  gap: 6px;
+  padding: 5px 12px 5px 10px;
+  font: 900 12px var(--ui);
+}
+#combo b {
+  font-size: 17px;
+  color: #c8463a;
+}
+#combo.warm {
+  background: #ffe9b8;
+}
+#combo.hot {
+  background: #ffcdb8;
+  animation: comboGlow 0.9s ease-in-out infinite alternate;
+}
+#combo .pips i {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 3px;
+  border-radius: 50%;
+  background: rgba(59, 38, 24, 0.2);
+}
+#combo .pips i.on {
+  background: #ff8a3d;
+}
+@keyframes comboGlow {
+  to {
+    box-shadow:
+      0 0 0 3px rgba(255, 122, 92, 0.55),
+      0 3px 10px rgba(20, 10, 4, 0.35);
+  }
+}
+#prog .clock {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  margin-left: 2px;
+}
+#prog .clock.low {
+  color: #d8452f;
+}
+#prog .wave {
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #d8452f;
+  color: #fff4e2;
+  animation: wavePulse 0.6s ease-in-out infinite alternate;
+}
+@keyframes wavePulse {
+  to {
+    background: #ff7a5c;
+  }
+}
+.banner {
+  position: absolute;
+  left: 50%;
+  top: 27%;
+  transform: translate(-50%, -50%) scale(0.6);
+  opacity: 0;
+  text-align: center;
+  pointer-events: none;
+  color: #fff4e2;
+  white-space: nowrap;
+}
+.banner b {
+  display: block;
+  font: 900 54px/1.05 var(--ui);
+  letter-spacing: 0.04em;
+  -webkit-text-stroke: 6px #3b2618;
+  paint-order: stroke fill;
+  text-shadow: 0 6px 18px rgba(10, 5, 2, 0.55);
+}
+.banner small {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 4px 14px;
+  border-radius: 999px;
+  background: rgba(59, 38, 24, 0.85);
+  font: 800 13px var(--ui);
+}
+.banner.hot b {
+  color: #ffc24a;
+}
+.banner.mid b {
+  font-size: 40px;
+}
+.banner.small b {
+  font-size: 30px;
+  -webkit-text-stroke-width: 5px;
+}
+.banner.sad b {
+  color: #c9cfd4;
+}
+.banner.on {
+  animation: bannerPop 2s ease-out forwards;
+}
+.banner.small.on {
+  animation-duration: 1.1s;
+}
+@keyframes bannerPop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.6);
+  }
+  12% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.12);
+  }
+  22% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  80% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -62%) scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .banner.on {
+    animation: none;
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+  #combo.hot,
+  #prog .wave {
+    animation: none;
+  }
+}
+/* the kitchen sees an order's guest losing patience */
+.tk .isogi {
+  position: absolute;
+  left: -8px;
+  top: -10px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #d8452f;
+  color: #fff4e2;
+  font: 900 10px var(--ui);
+  transform: rotate(-6deg);
+}
+.tk.lv1 {
+  box-shadow:
+    0 0 0 3px #f0b04e,
+    0 3px 8px rgba(20, 10, 4, 0.35);
+}
+.tk.lv2 {
+  box-shadow:
+    0 0 0 3px #e06a4e,
+    0 3px 8px rgba(20, 10, 4, 0.35);
+  animation: tkShake 0.5s ease-in-out infinite;
+}
+@keyframes tkShake {
+  50% {
+    transform: rotate(1.5deg);
+  }
+}
+.record {
+  margin: 0 0 8px;
+  color: #d8452f;
+  font: 900 18px var(--ui);
+}
+#prog.side {
+  left: max(10px, var(--sl));
+  top: calc(var(--st) + 46px);
+  bottom: auto;
+  transform: none;
+}
+.tk.gone {
+  opacity: 0.45;
+  text-decoration: line-through;
+}

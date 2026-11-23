@@ -2,7 +2,7 @@
 import { G } from '../game/G';
 import { C, K, isEmpty, trayOpen } from '../game/night-state';
 import { CL, KL } from '../data/layout';
-import { KSP, LAYER, LIFT, VH, VW, artReady, ctx, kenClip, kenLeave, kenLen, kenOn, mkLayer } from './stage';
+import { EATING, KSP, LAYER, LIFT, VH, VW, artReady, ctx, kenClip, kenLeave, kenLen, kenOn, mkLayer } from './stage';
 import { LOOKS, NIGHTS, WORDS, known, prop } from '../data/content';
 import { PTR } from '../input/pointer';
 import { T, TAU, clamp, rnd } from '../core/env';
@@ -404,6 +404,25 @@ export function drawCounter(dt) {
   }
   const drags = [...PTRS.values()],
     dk = k => drags.find(d => d.kind === k);
+  // a guest in a hurry (rush nights): half the patience, double the pay
+  const isogi = (x, y, sc = 1) => {
+    const p = 1 + Math.sin(G.clock * 7) * 0.05;
+    g.save();
+    g.translate(x, y);
+    g.scale(sc * p, sc * p);
+    g.rotate(-0.08);
+    rr(g, -34, -13, 68, 26, 13);
+    g.fillStyle = '#D8452F';
+    g.fill();
+    g.lineWidth = 3;
+    g.strokeStyle = '#1B1418';
+    g.stroke();
+    g.fillStyle = '#FFF4E2';
+    g.font = '900 14px "M PLUS Rounded 1c"';
+    g.textAlign = 'center';
+    g.fillText('いそぎ', 0, 5);
+    g.restore();
+  };
   // guests waiting out in the rain, under umbrellas
   C.queue.forEach(q => {
     const dg = dk('guest');
@@ -415,6 +434,7 @@ export function drawCounter(dt) {
     drawGuest(g, LOOKS[q.who], q.x, 286 + bob, 0.5, qm, {
       clip: { id: qm === 'hmm' ? 'confused' : 'idle', t: G.clock + q.id, loop: true },
     });
+    if (q.hurry) isogi(q.x, 286 - (painted() ? 128 : 108) + bob, 0.8);
     g.fillStyle = ['#E36A5A', '#6C8BE0', '#F2C94C', '#7FBF8F'][q.id % 4];
     g.beginPath();
     g.ellipse(q.x, 286 - (painted() ? 104 : 84) + bob, 40, 16, 0, Math.PI, TAU);
@@ -496,6 +516,8 @@ export function drawCounter(dt) {
     g.textAlign = painted() ? 'right' : 'left';
     if (gg.st !== 'walk') g.fillText(LOOKS[gg.who].nm, s.x + (painted() ? -84 : 50), y - (painted() ? 150 : 146));
     g.textAlign = 'center';
+    if (gg.hurry && gg.st !== 'walk' && !EATING.has(gg.st) && gg.st !== 'leave')
+      isogi(s.x - (painted() ? 112 : 70), y - (painted() ? 124 : 120));
     if (gg.st === 'ask') {
       const p = 1 + Math.sin(G.clock * 6) * 0.06;
       g.save();
@@ -514,10 +536,12 @@ export function drawCounter(dt) {
         g,
         s.x,
         118,
-        C.last === gg.who && C.next >= NIGHTS[C.n - 1].guests.length ? 'ごちそうさまでした！' : 'ごちそうさま！',
+        C.last === gg.who && (NIGHTS[C.n - 1].rush ? C.over : C.next >= NIGHTS[C.n - 1].guests.length)
+          ? 'ごちそうさまでした！'
+          : 'ごちそうさま！',
       );
     }
-    if (gg.st === 'order' || gg.st === 'refused')
+    if (gg.st === 'ask' || gg.st === 'order' || gg.st === 'refused')
       if (!NIGHTS[C.n - 1].gentle) {
         const p = clamp(gg.pat, 0, 1);
         g.strokeStyle = p > 0.5 ? 'rgba(94,211,176,.9)' : p > 0.25 ? 'rgba(240,176,78,.95)' : 'rgba(224,106,78,1)';

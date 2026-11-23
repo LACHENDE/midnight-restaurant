@@ -11,12 +11,25 @@ export interface GuestSpec {
   nw?: string;
   grp?: number;
 }
+/** a rush night: a timed shift with an endless line of guests instead of a fixed line-up */
+export interface Rush {
+  secs: number; // the shift's length; at 0 the stall closes (閉店) and the last guests finish
+  waves: [number, number][]; // [from, to] seconds of each ラッシュ: guests pour in
+  calm: [number, number]; // seconds between guests outside a wave
+  busy: [number, number]; // seconds between guests during a wave
+  pat: number; // seconds a seated guest waits for their bowl (tea still helps)
+  hurry: number; // share of いそぎ guests: half the patience, double the pay
+  last?: number; // from this second on everyone is in a hurry (終電, the last train)
+  tops3: number; // share of three-topping orders
+  stars: [number, number, number]; // yen for ★, ★★, ★★★
+}
 export interface Night {
   n: number;
   name: [string, string];
   seats: number;
   gentle: boolean;
   door?: boolean;
+  rush?: Rush;
   words: string[];
   guests: GuestSpec[];
 }
@@ -131,7 +144,53 @@ export const NIGHTS: Night[] = [
       { who: 'mika', o: ['negi'], teach: 0, grp: 4 },
     ],
   },
+  // rush nights: three minutes on the clock, guests keep coming, and the stars are yen
+  {
+    n: 4,
+    name: ['Rush hour', '高峰时段'],
+    seats: 3,
+    gentle: false,
+    words: ['tamago', 'negi', 'naruto'],
+    guests: [],
+    rush: {
+      secs: 180,
+      waves: [
+        [55, 95],
+        [145, 180],
+      ],
+      calm: [8, 11],
+      busy: [3.5, 5],
+      pat: 60,
+      hurry: 0.15,
+      tops3: 0,
+      stars: [8000, 20000, 35000],
+    },
+  },
+  {
+    n: 5,
+    name: ['The last train · 終電', '末班车'],
+    seats: 3,
+    gentle: false,
+    words: ['tamago', 'negi', 'naruto'],
+    guests: [],
+    rush: {
+      secs: 180,
+      waves: [
+        [40, 75],
+        [130, 180],
+      ],
+      calm: [7, 10],
+      busy: [3, 4.5],
+      pat: 50,
+      hurry: 0.25,
+      last: 130,
+      tops3: 0.15,
+      stars: [10000, 25000, 42000],
+    },
+  },
 ];
+// the shift clock of a rush night (0 elsewhere)
+export const rushOf = n => NIGHTS[n - 1] && NIGHTS[n - 1].rush;
 // a word's romaji and meaning step back once you have served it right three times
 export let MASTER = store.get('mastery', {});
 export const known = w => (MASTER[w] || 0) >= 3;
