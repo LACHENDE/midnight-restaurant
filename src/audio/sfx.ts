@@ -162,10 +162,17 @@ export const SFX = {
   close() {
     [784, 659, 523, 392].forEach((f, i) => tn(f, 0.7, { type: 'triangle', g: 0.06, at: i * 0.16 }));
   },
-  // a rush starts: a quick rising call and the shop bell
-  rush() {
-    [587, 740, 880, 1175].forEach((f, i) => tn(f, 0.16, { type: 'square', g: 0.035, at: i * 0.07 }));
-    tn(1568, 0.8, { g: 0.06, at: 0.3 });
+  // a big wave is coming: a two-tone call, three times, and the drum of feet in the rain
+  warn() {
+    for (let i = 0; i < 3; i++) {
+      tn(698, 0.22, { type: 'square', g: 0.035, at: i * 0.5 });
+      tn(932, 0.22, { type: 'square', g: 0.035, at: i * 0.5 + 0.24 });
+    }
+    nz(1.4, { type: 'lowpass', f: 300, g: 0.1, a: 0.3 });
+  },
+  // the noodles hit the gold zone (カンペキ)
+  perfect() {
+    [1047, 1319, 1568].forEach((f, i) => tn(f, 0.18, { type: 'triangle', g: 0.05, at: i * 0.05 }));
   },
 };
 export const buzz = ms => {

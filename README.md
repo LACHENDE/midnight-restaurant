@@ -29,14 +29,17 @@ The cook sees a "?" ticket when an order comes in, and the picture only once the
    - Guests have patience now. Tea helps, and the counter still controls how many guests come in.
 
 3. **At the door · 接客** (gentle): groups arrive, and the counter greets them, asks how many, and shows them in.
-4. **Rush hour** (3 seats, 3 minutes on the clock): guests keep coming, in calm stretches and **ラッシュ！** waves. The stars are yen, and the best score is kept.
-5. **The last train · 終電** (3 seats, 3 minutes): shorter patience, three-topping orders, and a final rush where everyone is in a hurry.
+4. **Rush hour** (3 seats, 18 guests), Plants-vs-Zombies style: よーい… いらっしゃいませ！, then guests trickle in and come in **big waves**. Each wave is announced first (**お客さんの大群が来る！**), and a progress bar with lantern flags shows when. The stars are yen, and the best score is kept.
+5. **The last train · 終電** (3 seats, 27 guests): shorter patience, three-topping orders, two big waves, and a final wave where everyone is in a hurry.
 
 **On every night with patience (2, 4, 5):**
 - **Combo:** right bowls in a row raise the bonus multiplier, ×2 from 3 in a row and ×3 from 6 (いいね！ → すごい！ → さいこう！ on both phones). A guest who leaves angry or a refused bowl breaks it (あ〜…).
-- **Speed:** the faster the bowl, the bigger the bonus.
-- **いそぎ guests** (rush nights): half the patience, double the bonus.
+- **Speed:** the faster the bowl, the bigger the bonus. **いそぎ guests** (rush nights) wait half as long and pay a double bonus.
 - **The cook feels it too:** tickets turn orange, then red, as their guest loses patience, and come down crossed out if the guest gives up.
+
+**For the cook, every night:** the noodle dial has a gold **カンペキ** zone in the middle of "ready"; noodles lifted there are perfect (a callout and a better bowl).
+
+**A window into your partner's station, every night:** the cook watches the counter (guests, their patience, bowls landing, coins); the counter watches the kitchen through the hatch (noodles in the pot, bowls filling up). Your partner's finger shows as a hand. The order words are not in it, so you still have to talk. Online, each phone sends its station a few times a second; in practice, しばBot's work and hand play in it.
 
 Romaji and meanings step back once you've served a word three times (tap **?** to see them again). Earnings add up to the stall's savings and unlock small decorations: lanterns, a lucky cat, hydrangeas.
 

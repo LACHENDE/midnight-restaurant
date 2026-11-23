@@ -12,12 +12,12 @@ import { newWord } from '../ui/overlays';
 import { noteAct } from './teach';
 import { sparkle } from '../render/particles';
 import { toCook } from '../net/messages';
-import { comboBreak, comboUp, floatYen, hudPush, patSecs, patTell, payFor, rushGuest, rushTick } from './rush';
+import { comboBreak, comboUp, floatYen, hudPush, patSecs, patTell, payFor, rushTick } from './rush';
 
 export const NOW_GUEST = () => NIGHTS[C.n - 1].guests;
 export function spawnGuest() {
   const N = NIGHTS[C.n - 1];
-  if (N.rush) return rushGuest();
+  if (N.rush) return; // a rush night's guests come from its waves (rush.ts)
   if (C.next >= N.guests.length) return;
   const grp = N.guests[C.next].grp,
     gsz = N.guests.filter(x => grp && x.grp === grp).length || 1;
@@ -118,7 +118,8 @@ export function judge(b, o) {
   const miss = o.filter(x => !b.tops.includes(x)),
     extra = b.tops.filter(x => !o.includes(x));
   if (miss.length || extra.length) return { ok: false, why: 'tops', miss, extra };
-  return { ok: true, q: (b.noodles === 'ready' ? 1 : 0.6) * (b.broth >= 0.7 && b.broth <= 1.06 ? 1 : 0.8) };
+  const nq = b.noodles === 'perfect' ? 1.25 : b.noodles === 'ready' ? 1 : 0.6;
+  return { ok: true, q: nq * (b.broth >= 0.7 && b.broth <= 1.06 ? 1 : 0.8) };
 }
 export function cServe(pi, si) {
   const b = C.pass[pi],

@@ -3,7 +3,8 @@ import { G } from './game/G';
 import { LINK } from './net/link';
 import { $, HUB, T, esc, store } from './core/env';
 import { C, K, NET_, cReset, counterHere, kReset, kitchenHere, meCook, meCounter } from './game/night-state';
-import { hudNow } from './game/rush';
+import { hudNow, rushPlan } from './game/rush';
+import { drawPeek, peekTick } from './render/peek';
 import { CL, KL } from './data/layout';
 import { DPR, KEN, OX, OY, S, VH, VW, ctx, cv, kenClip, toS, ART, HOOK3D } from './render/stage';
 import { HINT, hintTick } from './game/teach';
@@ -46,6 +47,7 @@ export function frame(now) {
     if (kitchenHere()) kitchenTick(dt);
     if (counterHere()) counterTick(dt);
     holdTick(dt);
+    peekTick(dt);
     if (G.MODE === 'bot') {
       if (G.ROLE === 'cook') botCounter(dt);
       else botCook(dt);
@@ -69,6 +71,8 @@ export function frame(now) {
   if (G.NIGHT && K && C) {
     if (meCook()) k3 ? HOOK3D.kitchen!(dt) : drawKitchen(dt);
     else c3 ? HOOK3D.counter!(dt) : drawCounter(dt);
+    // the window into your partner's station
+    if (G.NIGHT.ph === 'run' && !k3 && !c3) drawPeek(ctx, dt);
     if (G.NIGHT.ph === 'run') drawHintArrow(ctx, HINT);
   } else {
     if (!C) cReset(1);
@@ -110,17 +114,22 @@ export function hudTick() {
         .join('')}</span>`;
     cb.className = 'chip' + (H && H.x >= 3 ? ' hot' : H && H.x >= 2 ? ' warm' : '');
   }
-  // a rush night's clock, on both phones
+  // a rush night's progress, Plants-vs-Zombies style: the bar fills as guests arrive, a lantern marks each big wave
   if (N.rush) {
-    const rk = H ? H.s + ':' + H.w + ':' + H.o + G.LANG : '';
+    const rk = H ? H.p + ':' + H.w + ':' + H.o + G.LANG : '';
     if (pr.dataset.k !== rk) {
       pr.dataset.k = rk;
-      const m = Math.floor(Math.max(0, H ? H.s : N.rush.secs) / 60),
-        sec = String(Math.max(0, H ? H.s : N.rush.secs) % 60).padStart(2, '0');
-      pr.innerHTML =
+      const p = H ? Math.max(0, H.p) : 0,
+        flags = rushPlan(N.n).flags;
+      pr.innerHTML = `${esc(T(N.name[0], N.name[1]))}<span class="pbar"><i style="width:${(p * 100).toFixed(1)}%"></i>${flags
+        .map(f => `<b class="flag${p > f ? ' on' : ''}" style="left:${(f * 100).toFixed(1)}%"></b>`)
+        .join('')}</span>${
         H && H.o
-          ? `閉店 · ${T('finish up', '收尾')}`
-          : `${esc(T(N.name[0], N.name[1]))} · <b class="clock${H && H.s <= 10 ? ' low' : ''}">${m}:${sec}</b>${H && H.w ? `<span class="wave">${H.w === 2 ? '終電' : 'ラッシュ'}</span>` : ''}`;
+          ? `<span class="wave calm">${T('last guests', '最后的客人')}</span>`
+          : H && H.w
+            ? `<span class="wave">${H.w === 2 ? '最後の波' : '大群'}</span>`
+            : ''
+      }`;
     }
     pr.classList.toggle('side', meCook());
     pr.hidden = false;

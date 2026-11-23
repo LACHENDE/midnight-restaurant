@@ -2,6 +2,7 @@
 import { G } from '../game/G';
 import { LINK } from '../net/link';
 import { $, HUB, T, esc, store } from '../core/env';
+import { rushPlan } from '../game/rush';
 import { NIGHTS } from '../data/content';
 import { meCook, meCounter } from '../game/night-state';
 
@@ -74,13 +75,14 @@ export function readyUI() {
     canPick = G.MODE === 'bot' || meCounter();
   $('#langBtn').hidden = true;
   const best = N.rush ? store.get('best' + N.n, 0) : 0,
-    size = N.rush
-      ? `${N.rush.secs / 60}:00 ${T('on the clock', '倒计时')}${best ? ` · ${T('record', '纪录')} ¥${best.toLocaleString('ja-JP')}` : ''}`
+    plan = N.rush ? rushPlan(N.n) : null,
+    size = plan
+      ? `${plan.total} ${T('guests', '位客人')} · ${plan.flags.length} ${T('big waves', '大波')}${best ? ` · ${T('record', '纪录')} ¥${best.toLocaleString('ja-JP')}` : ''}`
       : `${N.guests.length} ${T('guests', '位客人')}`;
   ui(`<div class="kicker">${T('Tonight', '今晚')} · ${esc(T(N.name[0], N.name[1]))} · ${size}</div><h2>${cook ? T('You cook', '你煮面') : T('You run the counter', '你管柜台')}</h2>
     <p class="lead">${cook ? T(`${p} runs the counter and hears the orders. Ask them what to put in each bowl.`, `${p} 管柜台、听客人点单。问 TA 每碗要加什么。`) : T(`${p} cooks. Say each order out loud so they know what to make.`, `${p} 煮面。把每份订单大声说出来，让 TA 知道做什么。`)}</p>
     <ol class="steps">${(N.door && !cook ? STEPS_DOOR() : STEPS[G.ROLE]).map(s => `<li>${esc(s)}</li>`).join('')}</ol>
-    ${N.rush ? `<p class="note"><b>${T('Rush night:', '高峰之夜：')}</b> ${T('three minutes, guests keep coming in waves. Right bowls in a row build a combo (×2, ×3); a guest who leaves angry or a wrong bowl breaks it. いそぎ guests wait half as long but pay a double bonus.', '三分钟，客人一波波地来。连续做对能叠连击（×2、×3）；客人生气离开或上错面会断掉连击。いそぎ（赶时间）的客人只等一半的时间，但奖金翻倍。')}</p>` : ''}
+    ${N.rush ? `<p class="note"><b>${T('Rush night:', '高峰之夜：')}</b> ${T('guests trickle in, then a big wave (you get a warning first: お客さんの大群が来る！). The lanterns on the bar show when. Right bowls in a row build a combo (×2, ×3); a guest who leaves angry or a wrong bowl breaks it. いそぎ guests wait half as long but pay a double bonus.', '客人先陆续来，然后一大波（之前会有提醒：お客さんの大群が来る！）。进度条上的灯笼标出什么时候来。连续做对能叠连击（×2、×3）；客人生气离开或上错面会断掉连击。いそぎ（赶时间）的客人只等一半的时间，但奖金翻倍。')}</p>` : ''}
     ${
       canPick
         ? `<div class="row">${NIGHTS.filter(n => n.n === 1 || n.door || store.get('night2', 0))

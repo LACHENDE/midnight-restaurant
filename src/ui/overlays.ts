@@ -91,9 +91,16 @@ export function whyText(r) {
 }
 // a callout across the middle of the screen: the waves, closing time, and the combo
 const BAN = {
-  rush: ['ラッシュ！', ['Rush! Guests pour in', '高峰！客人涌进来'], 'big hot'],
-  last: ['終電ラッシュ！', ['The last train: everyone is in a hurry', '末班车：人人都赶时间'], 'big hot'],
-  close: ['閉店！', ['Closing time: no more guests, finish up', '打烊：不再进客，收尾吧'], 'big'],
+  ready: ['よーい…', ['Ready…', '准备…'], 'mid'],
+  go: ['いらっしゃいませ！', ['Open! Here they come', '开店！客人来了'], 'big'],
+  warn: ['お客さんの大群が来る！', ['A huge wave of guests is coming!', '一大波客人要来了！'], 'big hot warn'],
+  final: ['最後の波！', ['Final wave!', '最后一波！'], 'big hot warn'],
+  last: [
+    '終電の波！',
+    ['Final wave: the last-train crowd, all in a hurry!', '最后一波：末班车的人，个个赶时间！'],
+    'big hot warn',
+  ],
+  kanpeki: ['カンペキ！', ['Perfect noodles!', '面煮得完美！'], 'mid gold'],
   iine: ['いいね！', ['Nice!', '不错！'], 'small'],
   sugoi: ['すごい！ ×2', ['Amazing! Combo ×2', '厉害！连击 ×2'], 'mid'],
   saikou: ['さいこう！ ×3', ['The best! Combo ×3', '最棒！连击 ×3'], 'mid hot'],
@@ -113,7 +120,7 @@ export function banner(k) {
     () => {
       box.className = 'banner';
     },
-    k === 'iine' || k === 'aa' ? 1100 : 2000,
+    k === 'iine' || k === 'aa' || k === 'kanpeki' ? 1100 : k === 'ready' ? 1500 : 2000,
   );
 }
 let nwT = 0; // the new-word card's hide timer

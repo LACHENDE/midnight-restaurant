@@ -10,8 +10,9 @@ import { bowlTopAt } from '../render/shapes';
 import { banner, newWord, toast } from '../ui/overlays';
 import { noteAct } from './teach';
 
+// the noodles: raw, ready, then a gold カンペキ moment in the middle of ready, then soft and soggy
 export function doneOf(t) {
-  return t < 3.5 ? 'raw' : t < 12 ? 'ready' : t < 16 ? 'soft' : 'soggy';
+  return t < 3.5 ? 'raw' : t < 5.5 ? 'ready' : t < 7.5 ? 'perfect' : t < 12 ? 'ready' : t < 16 ? 'soft' : 'soggy';
 }
 export function kRecv(m) {
   if (!K) return;
@@ -97,7 +98,8 @@ export function kitchenTick(dt) {
     const d = doneOf(b.t);
     if (d !== b.done) {
       b.done = d;
-      if (d === 'ready') SFX.tick();
+      if (d === 'ready' && b.t < 5) SFX.tick();
+      if (d === 'perfect' && meCook()) SFX.perfect();
     }
   }
   for (let i = 0; i < 2; i++) {
@@ -142,6 +144,10 @@ export function kLift(i) {
   if (K.basket.st !== 'pot' || !bw || bw.noodles) return false;
   bw.noodles = K.basket.done;
   bw.pop = 1;
+  if (bw.noodles === 'perfect' && meCook()) {
+    banner('kanpeki');
+    sparkle(KL.slots[i].x, KL.slots[i].y - 16, 10);
+  }
   K.basket.st = 'hook';
   K.basket.t = 0;
   SFX.plop();

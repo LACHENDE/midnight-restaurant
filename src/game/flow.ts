@@ -11,7 +11,8 @@ import { PT } from '../render/particles';
 import { PTRS } from '../render/views';
 import { SFX } from '../audio/sfx';
 import { netSend } from '../net/online';
-import { rushReset } from './rush';
+import { rushPlan, rushReset } from './rush';
+import { peekReset } from '../render/peek';
 
 export function startNight(n) {
   G.NIGHT = { n, ph: 'run', t: 0 };
@@ -25,6 +26,7 @@ export function startNight(n) {
   G.lastAct = G.clock;
   G.hintK = '';
   rushReset();
+  peekReset();
   hideUI();
   $('#hud').hidden = false;
   $('#langBtn').hidden = true;
@@ -47,7 +49,7 @@ export function closeNight() {
       missed: C.missed,
       streak: C.bestStreak,
     };
-  if (N.rush) sum.total = C.served + C.left;
+  if (N.rush) sum.total = rushPlan(C.n).total;
   if (G.MODE === 'net') netSend({ t: 'close', sum });
   showClose(sum);
 }
@@ -97,7 +99,7 @@ export function showClose(sum) {
   ui(`<div class="kicker">閉店 · ${T('Closing time', '打烊')}</div><h2>${T('We made these bowls together.', '这些面是我们一起做的。')}</h2>
     <div class="stars">${'★'.repeat(stars)}<span class="off">${'★'.repeat(3 - stars)}</span></div>
     ${record ? `<p class="record">${T('New record!', '新纪录！')} 新記録！</p>` : ''}
-    <div class="stats"><span>${T('Bowls served', '上了几碗')}<b>${R ? sum.served : `${sum.served}/${sum.total}`}</b></span>${R ? `<span>${T('Best combo', '最长连击')}<b>${sum.streak || 0}</b></span><span>${T('Record', '纪录')}<b>¥${Math.max(best, sum.earned).toLocaleString('ja-JP')}</b></span>` : ''}<span>${T('Tonight', '今晚收入')}<b>¥${sum.earned.toLocaleString('ja-JP')}</b></span><span>${T('Stall savings', '小摊存款')}<b>¥${G.BANK.toLocaleString('ja-JP')}</b></span>${sum.sk ? `<span>接客<b>${sum.sk.ok}/${sum.sk.ok + sum.sk.bad}</b></span>` : ''}</div>
+    <div class="stats"><span>${T('Bowls served', '上了几碗')}<b>${sum.served}/${sum.total}</b></span>${R ? `<span>${T('Best combo', '最长连击')}<b>${sum.streak || 0}</b></span><span>${T('Record', '纪录')}<b>¥${Math.max(best, sum.earned).toLocaleString('ja-JP')}</b></span>` : ''}<span>${T('Tonight', '今晚收入')}<b>¥${sum.earned.toLocaleString('ja-JP')}</b></span><span>${T('Stall savings', '小摊存款')}<b>¥${G.BANK.toLocaleString('ja-JP')}</b></span>${sum.sk ? `<span>接客<b>${sum.sk.ok}/${sum.sk.ok + sum.sk.bad}</b></span>` : ''}</div>
     ${words.length ? `<p class="note" style="margin-bottom:0">${T('Words you used tonight', '今晚用到的单词')}</p><div class="words">${words.map(w => `<span><img src="${ICON[w]}" alt="">${WORDS[w].k}<small>${WORDS[w].ro} · ${esc(mean(w))} ×${sum.words[w]}</small></span>`).join('')}</div>` : ''}
     ${newDec.length ? `<p class="note" style="color:#2C8F72;font-weight:900">${T('New for the stall:', '小摊添了新东西：')} ${newDec.map(d => esc(T(d.nm[0], d.nm[1]))).join(' · ')}</p>` : ''}
     ${sum.n === 1 && nxt && !HUB ? `<p class="note">${T('Next night: two seats, two-topping orders, and a new word: なると.', '下一晚：两个座位，两种配料的订单，还有新单词：なると。')}</p>` : ''}

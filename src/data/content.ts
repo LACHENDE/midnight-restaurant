@@ -11,15 +11,19 @@ export interface GuestSpec {
   nw?: string;
   grp?: number;
 }
-/** a rush night: a timed shift with an endless line of guests instead of a fixed line-up */
+/** one stretch of a rush night: a trickle (a guest every few seconds) or a big wave (a crowd, announced first) */
+export interface Wave {
+  n: number; // guests in it
+  gap: [number, number]; // seconds between them
+  big?: boolean; // a big wave: お客さんの大群が来る！ first, and a lantern flag on the progress bar
+  final?: boolean; // the last wave of the night
+  hurry?: number; // share of いそぎ guests in it (the night's share when left out)
+}
+/** a rush night, Plants-vs-Zombies style: trickles and big waves; the night ends once the final wave is served */
 export interface Rush {
-  secs: number; // the shift's length; at 0 the stall closes (閉店) and the last guests finish
-  waves: [number, number][]; // [from, to] seconds of each ラッシュ: guests pour in
-  calm: [number, number]; // seconds between guests outside a wave
-  busy: [number, number]; // seconds between guests during a wave
+  waves: Wave[];
   pat: number; // seconds a seated guest waits for their bowl (tea still helps)
-  hurry: number; // share of いそぎ guests: half the patience, double the pay
-  last?: number; // from this second on everyone is in a hurry (終電, the last train)
+  hurry: number; // share of いそぎ guests: half the patience, double the bonus
   tops3: number; // share of three-topping orders
   stars: [number, number, number]; // yen for ★, ★★, ★★★
 }
@@ -144,7 +148,7 @@ export const NIGHTS: Night[] = [
       { who: 'mika', o: ['negi'], teach: 0, grp: 4 },
     ],
   },
-  // rush nights: three minutes on the clock, guests keep coming, and the stars are yen
+  // rush nights: guests come in trickles and big waves (a warning first), and the stars are yen
   {
     n: 4,
     name: ['Rush hour', '高峰时段'],
@@ -153,17 +157,16 @@ export const NIGHTS: Night[] = [
     words: ['tamago', 'negi', 'naruto'],
     guests: [],
     rush: {
-      secs: 180,
       waves: [
-        [55, 95],
-        [145, 180],
+        { n: 4, gap: [7, 9] },
+        { n: 5, gap: [1.2, 2], big: true },
+        { n: 3, gap: [6, 8] },
+        { n: 6, gap: [1, 1.8], big: true, final: true },
       ],
-      calm: [8, 11],
-      busy: [3.5, 5],
       pat: 60,
       hurry: 0.15,
       tops3: 0,
-      stars: [8000, 20000, 35000],
+      stars: [10000, 22000, 36000],
     },
   },
   {
@@ -174,23 +177,21 @@ export const NIGHTS: Night[] = [
     words: ['tamago', 'negi', 'naruto'],
     guests: [],
     rush: {
-      secs: 180,
       waves: [
-        [40, 75],
-        [130, 180],
+        { n: 4, gap: [6, 8] },
+        { n: 5, gap: [1, 1.6], big: true },
+        { n: 3, gap: [5, 7] },
+        { n: 6, gap: [1, 1.5], big: true },
+        { n: 2, gap: [5, 6] },
+        { n: 7, gap: [0.8, 1.4], big: true, final: true, hurry: 1 },
       ],
-      calm: [7, 10],
-      busy: [3, 4.5],
       pat: 50,
       hurry: 0.25,
-      last: 130,
       tops3: 0.15,
-      stars: [10000, 25000, 42000],
+      stars: [18000, 40000, 65000],
     },
   },
 ];
-// the shift clock of a rush night (0 elsewhere)
-export const rushOf = n => NIGHTS[n - 1] && NIGHTS[n - 1].rush;
 // a word's romaji and meaning step back once you have served it right three times
 export let MASTER = store.get('mastery', {});
 export const known = w => (MASTER[w] || 0) >= 3;

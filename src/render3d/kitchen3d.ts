@@ -326,7 +326,7 @@ function words() {
     rr(g, D.x - 90, D.y - 12, 180, 24, 12); g.fillStyle = 'rgba(255,244,226,.95)'; g.fill();
     ([[0, 3.5, '#C9CFD4'], [3.5, 12, '#5ED3B0'], [12, 16, '#F0B04E'], [16, 18, '#E06A4E']] as [number, number, string][]).forEach(([a, c, col]) => { g.fillStyle = col; rr(g, D.x - 78 + (a / 18) * 156, D.y - 5, ((c - a) / 18) * 156, 10, 4); g.fill(); });
     const px = D.x - 78 + (tt / 18) * 156; g.fillStyle = '#3B2618'; g.beginPath(); g.moveTo(px - 7, D.y - 16); g.lineTo(px + 7, D.y - 16); g.lineTo(px, D.y - 5); g.closePath(); g.fill();
-    g.font = '900 11px "M PLUS Rounded 1c"'; g.fillText({ raw: T('not yet', '还没好'), ready: T('ready!', '好了！'), soft: T('soft', '软了'), soggy: T('soggy', '烂了') }[b.done], D.x, D.y + 28);
+    g.font = '900 11px "M PLUS Rounded 1c"'; g.fillText({ raw: T('not yet', '还没好'), ready: T('ready!', '好了！'), perfect: 'カンペキ！', soft: T('soft', '软了'), soggy: T('soggy', '烂了') }[b.done], D.x, D.y + 28);
   }
   // each tray's word: kana always, romaji until you know it, NEW on a new one
   for (const w of Object.keys(KL.trays)) {

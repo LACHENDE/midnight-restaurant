@@ -13,7 +13,8 @@ import { cSay, micListen } from '../game/door';
 import { dist } from '../core/env';
 import { kDump, kLift, kLower, kNest, kPour, kSlide, kTakeBack, kTop, kUntop } from '../game/kitchen';
 
-export const PTR = { x: VW / 2, y: VH / 2 };
+// where this player's finger (or mouse) is, and when it last moved: the partner sees it as a hand in their window
+export const PTR = { x: VW / 2, y: VH / 2, down: false, at: -9 };
 /** what a press picked up (kind + where it came from); kept in PTRS while the finger is down */
 export function kDown(p): any {
   const b = K.basket;
@@ -170,6 +171,7 @@ export function cDrop(it, p) {
   }
 }
 export const up = e => {
+  PTR.down = false;
   const it = PTRS.get(e.pointerId);
   if (!it) return;
   PTRS.delete(e.pointerId);
@@ -217,6 +219,8 @@ export function init(): void {
     const p = toV(e);
     PTR.x = p.x;
     PTR.y = p.y;
+    PTR.down = true;
+    PTR.at = G.clock;
     if (!G.NIGHT || G.NIGHT.ph !== 'run' || G.PAUSED) return;
     const it = (meCook() ? kDown : cDown)(p);
     if (!it) return;
@@ -238,6 +242,7 @@ export function init(): void {
     const p = toV(e);
     PTR.x = p.x;
     PTR.y = p.y;
+    PTR.at = G.clock;
     const it = PTRS.get(e.pointerId);
     if (!it) return;
     it.x = p.x;
@@ -247,7 +252,10 @@ export function init(): void {
     (meCook() ? kMove : cMove)(it, 0);
   });
   cv.addEventListener('pointerup', up);
-  cv.addEventListener('pointercancel', e => PTRS.delete(e.pointerId));
+  cv.addEventListener('pointercancel', e => {
+    PTR.down = false;
+    PTRS.delete(e.pointerId);
+  });
   document.addEventListener('click', e => {
     const b = (e.target as Element).closest('button');
     if (!b) return;

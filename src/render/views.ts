@@ -96,6 +96,7 @@ export function drawKitchen(dt) {
     const seg: [number, number, string][] = [
       [0, 3.5, '#C9CFD4'],
       [3.5, 12, '#5ED3B0'],
+      [5.5, 7.5, '#FFC93C'],
       [12, 16, '#F0B04E'],
       [16, 18, '#E06A4E'],
     ];
@@ -116,9 +117,13 @@ export function drawKitchen(dt) {
     g.font = '900 11px "M PLUS Rounded 1c"';
     g.textAlign = 'center';
     g.fillText(
-      { raw: T('not yet', '还没好'), ready: T('ready!', '好了！'), soft: T('soft', '软了'), soggy: T('soggy', '烂了') }[
-        b.done
-      ],
+      {
+        raw: T('not yet', '还没好'),
+        ready: T('ready!', '好了！'),
+        perfect: 'カンペキ！',
+        soft: T('soft', '软了'),
+        soggy: T('soggy', '烂了'),
+      }[b.done],
       D.x,
       D.y + 28,
     );

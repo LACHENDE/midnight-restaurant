@@ -8,6 +8,7 @@ import { RD, lobbyUI, readyUI, roomUI } from '../ui/menus';
 import { cRecv } from '../game/counter';
 import { kRecv } from '../game/kitchen';
 import { showClose, startNight } from '../game/flow';
+import { peekRecv } from '../render/peek';
 
 export function netSend(m) {
   const ch = NET_.ch;
@@ -57,6 +58,8 @@ export function onNet(m) {
     return;
   }
   if (!G.NIGHT || G.NIGHT.ph !== 'run') return;
+  // your partner's station, a few times a second, for the window into it
+  if (m.t === 'peek') return peekRecv(m);
   if (meCook()) kRecv(m);
   else cRecv(m);
 }

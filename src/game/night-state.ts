@@ -58,8 +58,12 @@ export function cReset(n) {
     bye: [],
     leftG: {},
     sk: { ok: 0, bad: 0 },
-    // rush nights and the combo
+    // rush nights (their waves) and the combo
     rt: 0,
+    seg: 0,
+    segLeft: -1,
+    warned: false,
+    pending: [],
     over: false,
     streak: 0,
     bestStreak: 0,

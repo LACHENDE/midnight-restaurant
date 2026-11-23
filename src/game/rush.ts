@@ -1,4 +1,6 @@
-// rush nights and the combo: the shift clock, the waves of guests, いそぎ guests, tips for speed, ×2 ×3 streaks
+// rush nights and the combo. A rush night runs like Plants vs Zombies: guests come in trickles and big waves,
+// each big wave is announced first (お客さんの大群が来る！), a progress bar with lantern flags shows what's coming,
+// and the night ends once the final wave is served. The combo (×2, ×3) runs on every night with patience.
 import { G } from './G';
 import { C } from './night-state';
 import { CL } from '../data/layout';
@@ -11,20 +13,33 @@ import { PT } from '../render/particles';
 
 const N_ = () => NIGHTS[C.n - 1];
 export const rushOn = () => !!(C && N_() && N_().rush);
-// the shift's clock: seconds left, which wave (0 calm, 1 rush, 2 the last-train rush), closed yet
-export function rushClock() {
-  const R = N_().rush;
-  const t = C.rt || 0,
-    w = R.waves.some(([a, b]) => t >= a && t < b) ? (R.last !== undefined && t >= R.last ? 2 : 1) : 0;
-  return { left: Math.max(0, R.secs - t), wave: C.over ? 0 : w, over: !!C.over };
+export const QUEUE_MAX = 3; // guests standing in the rain; the rest of a crowd waits further down the street
+const READY = 3.2; // よーい… then いらっしゃいませ！ before the first guest
+// the night's guests, and where its big waves start on the progress bar (0..1)
+export function rushPlan(n) {
+  const R = NIGHTS[n - 1].rush,
+    total = R.waves.reduce((a, w) => a + w.n, 0);
+  let at = 0;
+  const flags = [];
+  for (const w of R.waves) {
+    if (w.big) flags.push(at / total);
+    at += w.n;
+  }
+  return { total, flags };
+}
+// the wave now: 0 a trickle (or before the first guest), 1 a big wave arriving, 2 the final wave arriving
+function waveNow() {
+  const W = N_().rush.waves[C.seg];
+  if (!W || !W.big || !C.warned) return 0;
+  return W.final ? 2 : 1;
 }
 // what both HUDs show (the counter's phone owns it and sends it to the kitchen)
 export function hudNow() {
-  const R = rushOn() ? rushClock() : null;
+  const R = rushOn();
   return {
-    s: R ? Math.ceil(R.left) : -1,
-    w: R ? R.wave : 0,
-    o: R ? R.over : false,
+    p: R ? Math.round((C.next / rushPlan(C.n).total) * 100) / 100 : -1,
+    w: R ? waveNow() : 0,
+    o: R ? !!C.over : false,
     x: C.mult || 1,
     k: C.streak || 0,
     y: C.earned,
@@ -62,7 +77,7 @@ export function comboBreak() {
   C.mult = 1;
   hudPush();
 }
-// the pay for a right bowl on a night with patience: the bowl's ¥500, plus a tip (quality, tea, speed)
+// the pay for a right bowl on a night with patience: the bowl's ¥500, plus a bonus (quality, tea, speed)
 // that いそぎ doubles and the combo multiplies
 export function payFor(g, q) {
   const speed = Math.round((clamp(g.pat, 0, 1) * 400) / 10) * 10,
@@ -86,58 +101,93 @@ export function floatYen(x, y, yen) {
   });
 }
 
-// a new guest for a rush night: anyone not already here, one to three toppings, maybe in a hurry
-export function rushGuest() {
+// a new guest for a rush night: anyone not already here, one to three toppings, maybe in a hurry.
+// They stand in the rain if there's room, or wait further down the street until there is.
+export function rushGuest(W) {
   const N = N_(),
     R = N.rush,
-    here = new Set([...C.queue.map(q => q.who), ...C.seats.filter(s => s.g).map(s => s.g.who)]),
-    pool = Object.keys(LOOKS).filter(w => !here.has(w)),
-    who = (pool.length ? pool : Object.keys(LOOKS))[Math.floor(Math.random() * (pool.length || 5))],
+    here = new Set([
+      ...C.queue.map(q => q.who),
+      ...C.pending.map(q => q.who),
+      ...C.seats.filter(s => s.g).map(s => s.g.who),
+    ]),
+    all = Object.keys(LOOKS),
+    pool = all.filter(w => !here.has(w)),
+    from = pool.length ? pool : all,
+    who = from[Math.floor(Math.random() * from.length)],
     words = N.words.slice().sort(() => Math.random() - 0.5),
     n = Math.random() < R.tops3 ? 3 : Math.random() < 0.5 ? 1 : 2,
-    t = C.rt || 0,
-    hurry = (R.last !== undefined && t >= R.last) || Math.random() < R.hurry;
+    hurry = Math.random() < (W.hurry !== undefined ? W.hurry : R.hurry);
   C.next++;
-  C.queue.push({
+  const q = {
     id: ++G.CID,
     who,
     o: N.words.filter(w => words.slice(0, n).includes(w)),
     teach: 0,
     nw: null,
     wait: 0,
-    x: CL.queue[C.queue.length % 3].x + 60,
+    x: 1060,
     idx: C.next,
     hurry,
-  });
+  };
+  if (C.queue.length < QUEUE_MAX) {
+    q.x = CL.queue[C.queue.length % 3].x + 60;
+    C.queue.push(q);
+  } else C.pending.push(q);
   SFX.bell();
 }
-// the shift: the clock runs, waves come and go, and at 閉店 the line outside goes home
+// nobody is waiting for anything: the next trickle needn't keep them waiting
+const idle = () =>
+  !C.queue.length &&
+  !C.pending.length &&
+  !C.seats.some(s => s.g && ['walk', 'look', 'ask', 'order', 'refused'].includes(s.g.st));
+// the night: よーい… いらっしゃいませ！, then each stretch in turn, a warning before every big wave
 export function rushTick(dt) {
   const R = N_().rush;
-  const before = rushClock();
-  C.rt = (C.rt || 0) + dt;
-  const now = rushClock();
-  if (!C.over && C.rt >= R.secs) {
-    C.over = true;
-    C.queue = [];
-    C.door = null;
-    announce('close');
-    SFX.close();
+  const t0 = C.rt;
+  C.rt += dt;
+  if (t0 === 0) announce('ready');
+  if (t0 < READY - 1.2 && C.rt >= READY - 1.2) {
+    announce('go');
+    SFX.open();
   }
-  if (!C.over && now.wave && now.wave !== before.wave) {
-    announce(now.wave === 2 ? 'last' : 'rush');
-    SFX.rush();
-  }
-  if (!C.over) {
+  if (C.rt < READY) return hudPush();
+  const W = R.waves[C.seg];
+  if (W) {
+    if (C.segLeft < 0) {
+      // a new stretch: the first guest of the night comes at once, a trickle after a breather
+      C.segLeft = W.n;
+      C.warned = false;
+      C.spawnT = C.seg ? (W.big ? 0 : rnd(6, 9)) : 0.4;
+    }
+    if (W.big && !C.warned) {
+      // a big wave is announced, and comes a few seconds later
+      C.warned = true;
+      announce(W.final ? (W.hurry === 1 ? 'last' : 'final') : 'warn');
+      SFX.warn();
+      buzz(60);
+      C.spawnT = 4;
+    }
+    // between big waves the line keeps moving: if the stall is idle, the next guest comes sooner
+    if (!W.big && C.spawnT > 1.5 && idle()) C.spawnT = 1.5;
     C.spawnT -= dt;
     if (C.spawnT <= 0) {
-      if (C.queue.length < 3) {
-        rushGuest();
-        const [a, b] = now.wave ? R.busy : R.calm;
-        C.spawnT = rnd(a, b);
-      } else C.spawnT = 1;
+      rushGuest(W);
+      C.segLeft--;
+      C.spawnT = rnd(W.gap[0], W.gap[1]);
+      if (C.segLeft <= 0) {
+        C.seg++;
+        C.segLeft = -1;
+      }
     }
   }
+  // the crowd down the street steps up as room opens in the rain
+  while (C.pending.length && C.queue.length < QUEUE_MAX) {
+    const q = C.pending.shift();
+    q.x = 1060;
+    C.queue.push(q);
+  }
+  if (!C.over && C.seg >= R.waves.length && !C.pending.length) C.over = true;
   hudPush();
 }
 // seconds a seated guest waits, on a night with patience

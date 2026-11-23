@@ -144,7 +144,7 @@ export const TOP_CODE = {
 export const TOP_SPR = { tamago: 'egg', negi: 'negi', naruto: 'naruto' };
 export const TOP_DRAW = {};
 export const TOP_POS = { tamago: [-0.42, 0.08], negi: [0, -0.28], naruto: [0.42, 0.12] };
-export const DONE_COL = { raw: '#F3E9CF', ready: '#F2C64E', soft: '#EED99A', soggy: '#EFE6C2' };
+export const DONE_COL = { raw: '#F3E9CF', ready: '#F2C64E', perfect: '#F5BB2E', soft: '#EED99A', soggy: '#EFE6C2' };
 export function noodleLines(g, x, y, rx, ry, s, n, col, lw) {
   g.strokeStyle = 'rgba(120,80,20,.3)';
   g.lineWidth = lw + 1.4 * s;
