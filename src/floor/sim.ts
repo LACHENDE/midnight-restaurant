@@ -2,11 +2,13 @@
 // orders and tickets, the kitchen (noodles → pot → bowl → topping → pass), serving, the goodbye, dirty tables,
 // patience and walkouts, rush hour, tips and combos, the food critic and the VIP. The partner's phone gets snapshots.
 import { Walker, nearestFree, distRect } from './world';
-import { TABLES, STATIONS, chairsOf, OUTSIDE, ROOM, WHO, COUNT, PIECES, DISHES, COOK, SHIFT, PHRASES, type Who, type Dish, type Station } from './data';
+import { TABLES, STATIONS, chairsOf, OUTSIDE, ROOM, WHO, COUNT, PIECES, DISHES, COOK, SHIFT, PHRASES, type Who, type Dish, type Station, type Pt } from './data';
 import { NIGHT, RUN, ABIL, kit, VOICE, type AbId } from './nights';
 
 export type Item = { k: 'noodles' } | { k: 'bowl'; noodles: '' | 'perfect' | 'ok'; tops: Dish[] } | { k: 'dishes'; n: number };
-export interface Player { x: number; y: number; face: number; moving: boolean; hold: Item | null; name: string; bot: boolean; dash: number; cd: Partial<Record<AbId, number>> }
+/** a player's job: 'wait' tables, 'cook', or 'all' (both) */
+export type Job = 'wait' | 'cook' | 'all';
+export interface Player { x: number; y: number; face: number; moving: boolean; hold: Item | null; name: string; bot: boolean; job: Job; dash: number; cd: Partial<Record<AbId, number>> }
 export interface Guest { who: Who; x: number; y: number; m: boolean; w?: Walker }
 export type GSt = 'queue' | 'arrive' | 'door' | 'wait' | 'follow' | 'seating' | 'ask' | 'food' | 'eat' | 'leave' | 'bye' | 'out' | 'angry';
 export interface Group {
@@ -23,15 +25,22 @@ export interface World {
   rush: boolean; banner: string; bannerT: number; shake: number; freeze: number; shield: number; night: number;
 }
 
-const fresh = (names: string[], bot: boolean): World => ({
+/** where each job starts: waiters in the dining room, cooks in the kitchen ('all' as before) */
+const DINE: Pt[] = [{ x: 660, y: 470 }, { x: 440, y: 480 }, { x: 690, y: 280 }], KITCHEN: Pt[] = [{ x: 990, y: 400 }, { x: 880, y: 400 }, { x: 1060, y: 420 }];
+const startOf = (job: Job, i: number): Pt => (ROOM.id !== 'wide' || job === 'all' ? ROOM.start[i ? 1 : 0] : (job === 'cook' ? KITCHEN : DINE)[i % 3]);
+const fresh = (names: string[], bots: boolean[], jobs: Job[]): World => ({
   t: 0, phase: 'play', yen: 0, combo: 0, bestCombo: 0, walkouts: 0, ok: 0, bad: 0, served: 0,
-  P: names.map((name, i) => ({ x: ROOM.start[i ? 1 : 0].x, y: ROOM.start[i ? 1 : 0].y, face: 1, moving: false, hold: null, name, bot: bot && i === 1, dash: 0, cd: {} })),
+  P: names.map((name, i) => { const job = jobs[i] || 'all', s = startOf(job, i); return { x: s.x, y: s.y, face: 1, moving: false, hold: null, name, bot: !!bots[i], job, dash: 0, cd: {} }; }),
   groups: [], tickets: [], pots: [{ st: 'empty', t: 0 }, { st: 'empty', t: 0 }], slots: Object.fromEntries(STATIONS.filter(s => s.kind === 'island' || s.kind === 'pass').map(s => [s.id, null])),
   dirty: {}, floats: [], ev: [], evN: 0, rush: false, banner: '', bannerT: 0, shake: 0, freeze: 0, shield: 0, night: NIGHT.n,
 });
-export const W: World = fresh(['', ''], false);
+export const W: World = fresh(['', ''], [], []);
 let GID = 0, TID = 0, spawnT = 1.5, critic = false, vip = false;
-export function reset(names: string[], bot: boolean) { Object.assign(W, fresh(names, bot)); GID = 0; TID = 0; spawnT = 1.5; critic = false; vip = false; }
+/** a new shift: the players' names, which are しばBot (true: player 1 is, as in practice), and their jobs */
+export function reset(names: string[], bot: boolean | boolean[], jobs: Job[] = []) {
+  const bots = Array.isArray(bot) ? bot : names.map((_, i) => bot && i === 1);
+  Object.assign(W, fresh(names, bots, jobs)); GID = 0; TID = 0; spawnT = 1.5; critic = false; vip = false;
+}
 
 // ---------- small helpers ----------
 const pick = <T,>(a: readonly T[]) => a[Math.floor(Math.random() * a.length)];

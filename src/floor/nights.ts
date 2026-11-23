@@ -42,7 +42,11 @@ export function offer(ups: Ups, seed = Math.random()): string[] {
 
 // ---------- nights ----------
 export const NIGHT = { n: 1, dishes: ['tamago', 'negi'] as Dish[], sizes: [1, 2], critic: 0, vip: 0, spawn: 13, rushSpawn: 7, drain: 1, two: 0 };
-export const RUN = { night: 1, ups: {} as Ups };
+/** who does what (a test of three set-ups): 'wait' you wait tables and しばBot cooks; 'cook' you cook and しばBot waits
+ * tables; 'all' you share everything and there's no bot */
+export type Crew = 'wait' | 'cook' | 'all';
+export const CREWS: Crew[] = ['wait', 'cook', 'all'];
+export const RUN = { night: 1, ups: {} as Ups, crew: 'wait' as Crew };
 const BASE_COOK = { ...COOK };
 /** set the shift up for night n with these upgrades (both phones do this, so the clock and stars match) */
 export function applyNight(n: number, ups: Ups) {

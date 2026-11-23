@@ -99,7 +99,7 @@ export function lobbyCard(saved: string | null) {
     ${saved ? `<div class="row"><button type="button" class="btn" data-a="rejoin">${T(`Rejoin room ${esc(saved)}`, `回到房间 ${esc(saved)}`)}</button></div>` : ''}
     <div class="row"><button type="button" class="btn${saved ? ' ghost' : ''}" data-a="host">${T('Play together: open a room', '一起玩：开房间')}</button>
       <input id="code" maxlength="4" placeholder="CODE" autocomplete="off" aria-label="${T('Room code', '房间码')}"><button type="button" class="btn ghost" data-a="join">${T('Join', '加入')}</button></div>
-    <div class="row"><button type="button" class="btn mint" data-a="solo">${T('Practise with しばBot (it cooks)', '和 しばBot 练习（它煮面）')}</button><a class="btn ghost" href="./">${T('← Midnight Restaurant', '← 午夜拉面摊')}</a></div>`);
+    <div class="row"><button type="button" class="btn mint" data-a="solo">${T('Practise with しばBot', '和 しばBot 练习')}</button><a class="btn ghost" href="./">${T('← Midnight Restaurant', '← 午夜拉面摊')}</a></div>`);
 }
 export function roomCard(code: string, invite: string) {
   panel(`<div class="kicker">${T('Room', '房间')}</div><h1 class="code">${esc(code)}</h1><p>${T('Send this link to your partner (or tell them the code):', '把链接发给搭档（或告诉对方房间码）：')}</p>
@@ -118,10 +118,21 @@ const nightNews = () => {
   if (n > 1) news.push(T('Guests come faster and wait less.', '客人来得更快，耐心更少。'));
   return news.join(' ');
 };
+/** the three set-ups being tested: who does what, for one of you (solo) or two */
+const CREW_TXT: Record<string, { solo: [string, string]; duo: [string, string]; bot: [string, string] }> = {
+  wait: { solo: ['You wait tables · しばBot cooks', '你管前台 · しばBot 煮面'], duo: ['You both wait tables · しばBot cooks', '你们都管前台 · しばBot 煮面'], bot: ['Call your orders to しばBot with 📣: it can\'t hear the guests.', '用 📣 把订单喊给 しばBot：它听不到客人。'] },
+  cook: { solo: ['You cook · しばBot waits tables', '你煮面 · しばBot 管前台'], duo: ['You both cook · しばBot waits tables', '你们都煮面 · しばBot 管前台'], bot: ['しばBot greets, seats and serves, and calls every order out: cook what\'s on the tickets.', 'しばBot 迎客、带位、上菜，并把每个订单喊出来：照订单煮。'] },
+  all: { solo: ['You do everything · no bot', '你全包 · 没有机器人'], duo: ['You share everything · no bot', '你们分工合作 · 没有机器人'], bot: ['No bot tonight: split the jobs between you as you like.', '今晚没有机器人：自己分工。'] },
+};
 export function readyCard(mode: 'solo' | 'host' | 'guest', me: boolean, them: boolean, best: number) {
-  const partner = mode === 'solo' ? T('しばBot runs the kitchen. Call your orders to it with 📣.', 'しばBot 负责厨房。用 📣 把订单喊给它。') : them ? T('Your partner is ready.', '搭档已准备好。') : T('Waiting for your partner to be ready…', '等待搭档准备…');
+  const C = CREW_TXT[RUN.crew] || CREW_TXT.wait,
+    who = mode === 'solo' ? C.solo : C.duo,
+    partner = mode === 'solo' ? '' : them ? T('Your partner is ready.', '搭档已准备好。') : T('Waiting for your partner to be ready…', '等待搭档准备…');
   const mins = `${Math.floor(SHIFT.len / 60)}:${String(SHIFT.len % 60).padStart(2, '0')}`;
-  panel(`<div class="kicker">第${RUN.night}夜 · ${T(`Night ${RUN.night}`, `第 ${RUN.night} 夜`)} · ${mins}</div><h2>${mode === 'guest' ? T('You wear the green apron', '你穿绿色围裙') : T('You wear the navy apron', '你穿深蓝色围裙')}</h2>
+  // the host (or you, in practice) picks the set-up; the partner sees it
+  const pick = mode === 'guest' ? '' : `<div class="row crew">${(['wait', 'cook', 'all'] as const).map(c => `<button type="button" class="btn ${RUN.crew === c ? 'mint' : 'ghost'}" data-a="crew:${c}">${T((mode === 'solo' ? CREW_TXT[c].solo : CREW_TXT[c].duo)[0], (mode === 'solo' ? CREW_TXT[c].solo : CREW_TXT[c].duo)[1])}</button>`).join('')}</div>`;
+  panel(`<div class="kicker">第${RUN.night}夜 · ${T(`Night ${RUN.night}`, `第 ${RUN.night} 夜`)} · ${mins}</div><h2>${T(who[0], who[1])}</h2>
+    ${pick}<p>${T(C.bot[0], C.bot[1])} ${mode === 'guest' ? T('You wear the green apron.', '你穿绿色围裙。') : T('You wear the navy apron.', '你穿深蓝色围裙。')}</p>
     <p>${nightNews()}</p>${kitHtml(mode === 'guest' ? 1 : 0)}${upsHtml()}${RUN.night === 1 ? HOWTO() : ''}
     <p class="note">${partner}${best ? ` · ${T('Best: night', '最好：第')} ${best}${T('', ' 夜')}` : ''}</p>
     <div class="row"><button type="button" class="btn mint" data-a="ready"${me ? ' disabled' : ''}>${me ? T('Ready ✓', '已准备 ✓') : T('Ready', '准备好了')}</button><button type="button" class="btn ghost" data-a="lobby">${T('Leave', '离开')}</button></div>`);

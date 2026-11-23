@@ -28,46 +28,48 @@ export interface RoomDef {
   headY: (t: Table) => number; // where a seated group's bubble goes
   ring: [number, number]; // a pot's doneness ring, from the pot's centre
 }
+// 1200 × 560: as wide as a phone held sideways, so the dining room has room to walk round the tables and the
+// kitchen has room for two cooks (it used to be 1000 wide, and felt cramped)
 const WIDE: RoomDef = {
-  world: { w: 1000, h: 560 },
-  divider: { x0: 636, y0: 0, x1: 662, y1: 470 },
+  world: { w: 1200, h: 560 },
+  divider: { x0: 760, y0: 0, x1: 786, y1: 470 },
   walls: [
-    { x0: -60, y0: -60, x1: 1060, y1: 30 }, // back wall
+    { x0: -60, y0: -60, x1: 1260, y1: 30 }, // back wall
     { x0: -60, y0: -60, x1: 26, y1: 760 }, // left wall
-    { x0: 1000, y0: -60, x1: 1060, y1: 760 }, // right wall
+    { x0: 1200, y0: -60, x1: 1260, y1: 760 }, // right wall
     { x0: -60, y0: 560, x1: 50, y1: 760 }, // the front wall, with the door between x 50 and 150
-    { x0: 150, y0: 560, x1: 1060, y1: 760 },
+    { x0: 150, y0: 560, x1: 1260, y1: 760 },
   ],
   bench: { x0: 26, y0: 230, x1: 44, y1: 370 },
   tables: [
-    { id: 1, x: 250, y: 165, seats: 2, r: 40 },
-    { id: 2, x: 485, y: 165, seats: 4, r: 56 },
-    { id: 3, x: 250, y: 385, seats: 2, r: 40 },
-    { id: 4, x: 485, y: 385, seats: 4, r: 56 },
+    { id: 1, x: 270, y: 160, seats: 2, r: 40 },
+    { id: 2, x: 570, y: 160, seats: 4, r: 56 },
+    { id: 3, x: 270, y: 395, seats: 2, r: 40 },
+    { id: 4, x: 570, y: 395, seats: 4, r: 56 },
   ],
   stations: [
-    st('bowls', 'bowls', 676, 30, 744, 78, 710, 100),
-    st('tamago', 'tamago', 752, 30, 812, 78, 782, 100),
-    st('negi', 'negi', 820, 30, 880, 78, 850, 100),
-    st('naruto', 'naruto', 888, 30, 948, 78, 918, 100),
-    st('noodles', 'noodles', 952, 100, 1000, 168, 930, 134),
-    st('pot0', 'pot', 952, 186, 1000, 250, 930, 218),
-    st('pot1', 'pot', 952, 266, 1000, 330, 930, 298),
-    st('trash', 'trash', 952, 420, 1000, 470, 930, 445),
-    st('sink', 'sink', 790, 512, 890, 560, 840, 490),
-    st('island0', 'island', 770, 256, 820, 306, 795, 330),
-    st('island1', 'island', 820, 256, 870, 306, 845, 330),
-    st('pass0', 'pass', 636, 236, 662, 284, 684, 260),
-    st('pass1', 'pass', 636, 284, 662, 332, 684, 308),
+    st('bowls', 'bowls', 806, 30, 874, 78, 840, 100),
+    st('tamago', 'tamago', 896, 30, 956, 78, 926, 100),
+    st('negi', 'negi', 978, 30, 1038, 78, 1008, 100),
+    st('naruto', 'naruto', 1060, 30, 1120, 78, 1090, 100),
+    st('noodles', 'noodles', 1152, 100, 1200, 168, 1130, 134),
+    st('pot0', 'pot', 1152, 186, 1200, 250, 1130, 218),
+    st('pot1', 'pot', 1152, 266, 1200, 330, 1130, 298),
+    st('trash', 'trash', 1152, 420, 1200, 470, 1130, 445),
+    st('sink', 'sink', 960, 512, 1060, 560, 1010, 490),
+    st('island0', 'island', 920, 256, 970, 306, 945, 330),
+    st('island1', 'island', 970, 256, 1020, 306, 995, 330),
+    st('pass0', 'pass', 760, 236, 786, 284, 808, 260),
+    st('pass1', 'pass', 760, 284, 786, 332, 808, 308),
   ],
   counters: [
-    { x0: 662, y0: 30, x1: 1000, y1: 78 },
-    { x0: 952, y0: 78, x1: 1000, y1: 512 },
-    { x0: 760, y0: 512, x1: 1000, y1: 560 },
-    { x0: 770, y0: 256, x1: 870, y1: 306 },
+    { x0: 786, y0: 30, x1: 1200, y1: 78 },
+    { x0: 1152, y0: 78, x1: 1200, y1: 512 },
+    { x0: 900, y0: 512, x1: 1200, y1: 560 },
+    { x0: 920, y0: 256, x1: 1020, y1: 306 },
   ],
   door: { x: 100, y: 505 }, outside: { x: 100, y: 680 },
-  start: [{ x: 560, y: 470 }, { x: 820, y: 400 }],
+  start: [{ x: 660, y: 470 }, { x: 990, y: 400 }],
   exit: { y: 548, dir: 1 },
   gridY: [0, 720],
   chairs: 'sides',

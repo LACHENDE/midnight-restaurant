@@ -3,7 +3,8 @@
 import './floor.css';
 import { WORLD, SHIFT, PHRASES, ROOM } from './data';
 import { W, reset, tick, act, say, call, cast, snapshot, actionTarget, talkTarget, wants, starsFor, type Snap } from './sim';
-import { RUN, applyNight, kit, offer, ABIL, type AbId, type Ups } from './nights';
+import { RUN, CREWS, applyNight, kit, offer, ABIL, type AbId, type Crew, type Ups } from './nights';
+import type { Job } from './sim';
 import { slide, useRoom } from './world';
 import { draw } from './draw';
 import { STICK, bindInput, restStick } from './input';
@@ -86,9 +87,10 @@ LINK.open(
       else if (m.t === 'ready') { themReady = true; if (screen === 'ready') { readyCard('host', meReady, true, best()); maybeStart(); } }
     } else if (mode === 'guest') {
       if (m.t === 'snap') { if (!snap || screen !== 'play') { local.x = m.s.P[me].x; local.y = m.s.P[me].y; } snap = m.s; }
-      else if (m.t === 'start') { setRun(m.night, m.ups); applyNight(RUN.night, RUN.ups); useRoom('wide'); resize(); snap = null; lastEv = 0; begin(); }
+      else if (m.t === 'start') { setRun(m.night, m.ups); setCrew(m.crew); applyNight(RUN.night, RUN.ups); useRoom('wide'); resize(); snap = null; lastEv = 0; begin(); }
+      else if (m.t === 'crew') { setCrew(m.crew); if (screen === 'ready') readyCard('guest', meReady, themReady, best()); }
       else if (m.t === 'ready') { themReady = !!m.r; if (screen === 'ready') readyCard('guest', meReady, themReady, best()); }
-      else if (m.t === 'toReady') { setRun(m.night, m.ups); toReady(); }
+      else if (m.t === 'toReady') { setRun(m.night, m.ups); setCrew(m.crew); toReady(); }
     }
   },
   (st: string) => {
@@ -96,7 +98,7 @@ LINK.open(
     else if (st === 'joining') waitCard(T(`Joining room ${LINK.code}…`, `正在加入房间 ${LINK.code}…`));
     else if (st === 'nohost') { lobby(); $('code').focus(); alertCard(T('No room with that code is open.', '没有这个房间码的房间。')); }
     else if (st === 'up' || st === 'hello') { $('net').hidden = true; paused = false; if (screen === 'room' || screen === 'lobby') toReady(); }
-    else if (st === 'reset') { if (mode === 'host' && screen === 'play') send({ t: 'start', room: 'wide', night: RUN.night, ups: RUN.ups }); else if (screen !== 'play') toReady(); }
+    else if (st === 'reset') { if (mode === 'host' && screen === 'play') send({ t: 'start', room: 'wide', night: RUN.night, ups: RUN.ups, crew: RUN.crew }); else if (screen !== 'play') toReady(); }
     else if (st === 'down') { if (screen === 'play') { paused = true; $('net').hidden = false; } }
     else if (st === 'bye') { lobby(); alertCard(T('Your partner left the room.', '搭档离开了房间。')); }
     else if (st === 'error') { lobby(); alertCard(T('Online play could not start here. Try Safari or Chrome (and the VPN in China).', '这里无法联机。试试 Safari 或 Chrome（在中国请开 VPN）。')); }
@@ -107,6 +109,24 @@ const alertCard = (msg: string) => { const p = $('panel').querySelector('.card')
 
 // ---------- screens ----------
 const setRun = (n: number, ups: Ups) => { RUN.night = Math.max(1, +n || 1); RUN.ups = ups && typeof ups === 'object' ? { ...ups } : {}; };
+const setCrew = (c: unknown) => { if (CREWS.includes(c as Crew)) RUN.crew = c as Crew; };
+/** who is on the floor for each set-up: [name, is しばBot, job]. Solo: you (and しばBot); online: the two of you (and しばBot) */
+const CREW_ROSTER: Record<'solo' | 'duo', Record<Crew, [string, boolean, Job][]>> = {
+  solo: {
+    wait: [['', false, 'wait'], ['しばBot', true, 'cook']],
+    cook: [['', false, 'cook'], ['しばBot', true, 'wait']],
+    all: [['', false, 'all']],
+  },
+  duo: {
+    wait: [['A', false, 'wait'], ['B', false, 'wait'], ['しばBot', true, 'cook']],
+    cook: [['A', false, 'cook'], ['B', false, 'cook'], ['しばBot', true, 'wait']],
+    all: [['A', false, 'all'], ['B', false, 'all']],
+  },
+};
+const crewReset = (who: 'solo' | 'duo') => {
+  const r = CREW_ROSTER[who][RUN.crew];
+  reset(r.map(([n]) => n || T('You', '你')), r.map(([, b]) => b), r.map(([, , j]) => j));
+};
 const bestKey = () => `mfloor_bestnight_${mode === 'solo' ? 'solo' : 'duo'}`;
 const best = () => { try { return +(localStorage.getItem(bestKey()) || 0); } catch { return 0; } };
 function lobby() {
@@ -114,17 +134,19 @@ function lobby() {
   const s = LINK.saved(); lobbyCard(s && s.side === 'g' ? s.code : null);
 }
 function toReady() {
-  screen = 'ready'; meReady = false; themReady = mode === 'solo'; $('hud').hidden = true; music(false); delete document.body.dataset.room;
+  // sideways from here on: the ready card already asks for it, so the shift starts the right way round
+  screen = 'ready'; meReady = false; themReady = mode === 'solo'; $('hud').hidden = true; music(false); document.body.dataset.room = 'wide';
   applyNight(RUN.night, RUN.ups);
   readyCard(mode as any, false, themReady, best());
-  if (mode === 'host') send({ t: 'ready', r: false });
+  if (mode === 'host') { send({ t: 'ready', r: false }); send({ t: 'crew', crew: RUN.crew }); }
 }
 function maybeStart() {
   if (!meReady || !themReady) return;
   // landscape only: the wide shop (the tall one stays in the code for now)
   applyNight(RUN.night, RUN.ups); useRoom('wide'); resize();
-  if (mode === 'solo') { reset([T('You', '你'), 'しばBot'], true); botReset(); }
-  if (mode === 'host') { reset(['A', 'B'], false); send({ t: 'start', room: 'wide', night: RUN.night, ups: RUN.ups }); }
+  if (mode === 'solo') crewReset('solo');
+  if (mode === 'host') { crewReset('duo'); send({ t: 'start', room: 'wide', night: RUN.night, ups: RUN.ups, crew: RUN.crew }); }
+  botReset();
   begin();
 }
 function begin() {
@@ -135,9 +157,14 @@ function begin() {
 $('panel').addEventListener('click', e => {
   const a = (e.target as Element).closest<HTMLElement>('[data-a]')?.dataset.a; if (!a) return; wake();
   if (a === 'solo') { mode = 'solo'; setRun(1, {}); toReady(); }
+  else if (a.startsWith('crew:')) { // who does what tonight: the host (or you, in practice) picks, the partner sees it
+    setCrew(a.slice(5));
+    if (mode === 'host') send({ t: 'crew', crew: RUN.crew });
+    readyCard(mode as any, meReady, themReady, best());
+  }
   else if (a.startsWith('up:')) { // a night cleared: take an upgrade and go on to the next night
     const k = a.slice(3); RUN.ups[k] = (RUN.ups[k] || 0) + 1; RUN.night++;
-    if (mode === 'host') send({ t: 'toReady', night: RUN.night, ups: RUN.ups });
+    if (mode === 'host') send({ t: 'toReady', night: RUN.night, ups: RUN.ups, crew: RUN.crew });
     toReady();
   }
   else if (a === 'host') { setRun(1, {}); mode = 'host'; screen = 'room'; LINK.host(); waitCard(T('Opening a room…', '正在开房间…')); }
@@ -148,7 +175,7 @@ $('panel').addEventListener('click', e => {
   }
   else if (a === 'copy') { const i = $('invite') as HTMLInputElement; i.select(); navigator.clipboard?.writeText(i.value).catch(() => {}); }
   else if (a === 'ready') { meReady = true; readyCard(mode as any, true, themReady, best()); if (mode === 'guest') send({ t: 'ready' }); else { if (mode === 'host') send({ t: 'ready', r: true }); maybeStart(); } }
-  else if (a === 'again') { setRun(1, {}); if (mode === 'host') send({ t: 'toReady', night: 1, ups: {} }); toReady(); }
+  else if (a === 'again') { setRun(1, {}); if (mode === 'host') send({ t: 'toReady', night: 1, ups: {}, crew: RUN.crew }); toReady(); }
   else if (a === 'lobby') lobby();
 });
 function finish(v: Snap) {
@@ -173,7 +200,7 @@ function frame(now: number) {
   }
   if (mode === 'guest') { sendT -= dt; if (sendT <= 0) { sendT = 0.066; send({ t: 'pos', x: Math.round(local.x), y: Math.round(local.y), f: local.face, m: local.moving }, false); } }
   else if (screen === 'play' && !paused) {
-    if (mode === 'solo') botTick(dt);
+    botTick(dt); // しばBot, when tonight's set-up has it (in practice, or online as the third pair of hands)
     tick(dt);
     if (mode === 'host') { sendT -= dt; if (sendT <= 0) { sendT = 0.08; send({ t: 'snap', s: snapshot(1) }, false); } }
   }
@@ -201,7 +228,8 @@ function hintFor(v: Snap): string {
   if (h?.k === 'bowl' && !h.tops.length) return T('Add the topping from the ticket', '加订单上的配料');
   if (h?.k === 'bowl') return T('Put it on the pass, or serve it: お待たせしました', '放到出餐口，或直接上菜：お待たせしました');
   if (h?.k === 'dishes') return T('Dishes to the sink: あらう', '把碗盘拿到水槽：あらう');
-  if (v.tickets.some(tk => tk.by === me && !tk.called)) return mode === 'solo' ? T('Tap 📣 on your ticket so しばBot can cook it', '点订单上的 📣，让 しばBot 去煮') : T('Tell your partner the order (or tap 📣)', '把订单告诉搭档（或点 📣）');
+  if (v.tickets.some(tk => tk.by === me && !tk.called))
+    return RUN.crew === 'wait' ? T('Tap 📣 on your ticket so しばBot can cook it', '点订单上的 📣，让 しばBot 去煮') : mode === 'solo' ? '' : T('Tell your partner the order (or tap 📣)', '把订单告诉搭档（或点 📣）');
   if (v.groups.some(x => x.st === 'door')) return T('Guests at the door!', '门口有客人！');
   return '';
 }

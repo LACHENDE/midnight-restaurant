@@ -2,7 +2,7 @@
 // game's faces), both waiters and what they carry, patience rings, the critic and VIP badges, replies and effects.
 import { doneness, wants, type Snap, type Item, type Act, type Group } from './sim';
 import ART3D from './art3d.json';
-import { WORLD, TABLES, STATIONS, chairsOf, DOOR, DIVIDER, ROOM, FACE, WHO, COOK, type Who, type Table } from './data';
+import { WORLD, TABLES, STATIONS, COUNTERS, chairsOf, DOOR, DIVIDER, ROOM, FACE, WHO, COOK, type Who, type Table } from './data';
 
 const IMG: Record<string, HTMLImageElement> = {};
 const load = (k: string, src: string) => { const im = new Image(); im.onload = () => { floorLayer = null; }; im.src = src; IMG[k] = im; };
@@ -52,7 +52,7 @@ function guest(g: G2, who: Who, x: number, y: number, mood: string, ask: boolean
   g.save(); g.translate(x0 + F.x * W, y0 + F.t * H + fw * 0.25); g.scale(u, u); face(g, mood, t, seed); g.restore();
 }
 /** a waiter: white shirt, an apron in the player's colour, a hachimaki; しばBot is a shiba in an apron */
-const APRON = ['#23305C', '#2F6B4F'], BAND = ['#C8463A', '#3E6EA8'];
+const APRON = ['#23305C', '#2F6B4F', '#B5652A'], BAND = ['#C8463A', '#3E6EA8', '#E0A93A'];
 function waiter(g: G2, i: number, x: number, y: number, moving: boolean, bot: boolean, t: number, me: boolean) {
   const bob = moving ? Math.abs(Math.sin(t * 12 + i)) * 3 : 0;
   if (me) { g.strokeStyle = 'rgba(94,211,176,.85)'; g.lineWidth = 3; el(g, x, y, 26, 9); g.stroke(); }
@@ -111,14 +111,15 @@ function roomWide(g: G2) {
     g.fillStyle = `hsl(204,16%,${l}%)`; rr(g, x + 1.5, y + 1.5, 33, 33, 3); g.fill();
     g.fillStyle = 'rgba(255,255,255,.07)'; g.fillRect(x + 3, y + 2.5, 29, 2);
   }
-  // a rubber mat in front of the stove and a floor drain: something to stand on
-  g.fillStyle = 'rgba(28,30,34,.55)'; rr(g, 896, 186, 52, 150, 8); g.fill();
-  g.fillStyle = 'rgba(255,255,255,.07)'; for (let y = 196; y < 330; y += 14) for (let x = 904; x < 944; x += 14) { el(g, x + 3, y + 3, 3, 3); g.fill(); }
-  g.fillStyle = '#3E4F5A'; el(g, 800, 420, 15, 15); g.fill(); g.strokeStyle = '#2C3940'; g.lineWidth = 2; for (let i = -8; i <= 8; i += 4) { g.beginPath(); g.moveTo(800 + i, 409); g.lineTo(800 + i, 431); g.stroke(); }
-  g.fillStyle = '#4A2814'; g.fillRect(0, 0, WORLD.w, 30); g.fillStyle = '#B8332A'; for (let x = 18; x < 620; x += 66) { rr(g, x, 8, 58, 24, 4); g.fill(); }
+  // a rubber mat in front of the stove and a floor drain: something to stand on (placed from the pots and the island)
+  const pot = STATIONS.find(s => s.kind === 'pot')!, isl = STATIONS.find(s => s.kind === 'island')!, mx = pot.x0 - 56, dx = isl.x0 - 120;
+  g.fillStyle = 'rgba(28,30,34,.55)'; rr(g, mx, 186, 52, 150, 8); g.fill();
+  g.fillStyle = 'rgba(255,255,255,.07)'; for (let y = 196; y < 330; y += 14) for (let x = mx + 8; x < mx + 48; x += 14) { el(g, x + 3, y + 3, 3, 3); g.fill(); }
+  g.fillStyle = '#3E4F5A'; el(g, dx, 420, 15, 15); g.fill(); g.strokeStyle = '#2C3940'; g.lineWidth = 2; for (let i = -8; i <= 8; i += 4) { g.beginPath(); g.moveTo(dx + i, 409); g.lineTo(dx + i, 431); g.stroke(); }
+  g.fillStyle = '#4A2814'; g.fillRect(0, 0, WORLD.w, 30); g.fillStyle = '#B8332A'; for (let x = 18; x < DIVIDER.x0 - 40; x += 66) { rr(g, x, 8, 58, 24, 4); g.fill(); }
   g.fillStyle = '#5A3520'; g.fillRect(DIVIDER.x0, 30, DIVIDER.x1 - DIVIDER.x0, DIVIDER.y1 - 30);
   const counter = (x0: number, y0: number, x1: number, y1: number) => { g.fillStyle = '#9EA7AF'; g.fillRect(x0, y0, x1 - x0, y1 - y0); g.fillStyle = '#C9D1D8'; g.fillRect(x0 + 2, y0 + 2, x1 - x0 - 4, y1 - y0 - 6); };
-  counter(662, 30, 1000, 78); counter(952, 78, 1000, 512); counter(760, 512, 1000, 560); counter(770, 256, 870, 306);
+  for (const c of COUNTERS) counter(c.x0, c.y0, c.x1, c.y1);
   g.font = `900 13px ${FONT}`; g.textAlign = 'center';
   for (const s of STATIONS) {
     const cx = (s.x0 + s.x1) / 2, cy = (s.y0 + s.y1) / 2;
