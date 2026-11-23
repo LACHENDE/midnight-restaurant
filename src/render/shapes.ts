@@ -585,6 +585,11 @@ export function drawGuest(g, L, x, y, s, mood, o: any = {}) {
       W = (H * im.naturalWidth) / im.naturalHeight,
       top = 26 - H;
     g.drawImage(im, -W / 2, top, W, H);
+    if (OWN_FACE.has(L.id)) {
+      // the owner drew this face in: no code face on top
+      g.restore();
+      return;
+    }
     const fw = FACE_W; // one face size for everyone (the pictures' own face widths differ a little)
     g.translate(-W / 2 + F.x * W, top + F.t * H + fw * 0.25);
     g.scale(fw / 74, fw / 74);
@@ -623,6 +628,8 @@ export function drawGuest(g, L, x, y, s, mood, o: any = {}) {
   g.restore();
 }
 export const GUEST_H = 212;
+// guests whose picture already has the owner's face drawn in
+export const OWN_FACE = new Set(['ken']);
 // every guest's drawn face (eyes, cheeks, mouth) is this wide on the stage at scale 1: the size of most guests' painted faces
 export const FACE_W = 71;
 // a painted guest's height on the stage at scale 1

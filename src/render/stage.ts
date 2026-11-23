@@ -65,7 +65,9 @@ export const PROPS = [
 // Ken's animation clips: the owner's handoff, cut by tests/mr_ken_import.js into art/ken (a 4-column atlas per clip, the frame order and timing
 // of the preview GIFs, a waist anchor, and where his blank face is on each frame). Until they load, Ken is his still picture.
 export const KEN: { d: any; im: Record<string, HTMLImageElement> } = { d: null, im: {} };
-export const kenOn = g => !!(g && g.who === 'ken' && KEN.d),
+// Ken is the owner's own drawing now (face drawn in, no clips): his old animation clips stay off
+export const KEN_CLIPS = false;
+export const kenOn = g => !!(KEN_CLIPS && g && g.who === 'ken' && KEN.d),
   kenLen = id => KEN.d.clips[id].len;
 export const KSP = 1.25;
 // the long reactions play a little faster so the stall keeps moving
