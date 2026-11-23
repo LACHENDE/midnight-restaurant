@@ -382,6 +382,13 @@ export function drawCounter(dt) {
   }
   // the vertical shop sign outside, like the one across the street
   if (art) {
+    // the painted counter has no banner of its own: a flat red one in the same outlined style
+    rr(g, 277, 133, 28, 112, 4);
+    g.fillStyle = '#C0483D';
+    g.fill();
+    g.lineWidth = 3;
+    g.strokeStyle = '#1B1418';
+    g.stroke();
     g.fillStyle = '#FFF4E2';
     g.font = '900 17px "M PLUS Rounded 1c"';
     g.textAlign = 'center';

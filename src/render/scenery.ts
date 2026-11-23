@@ -249,7 +249,11 @@ export function counterBG(g) {
     g.fillStyle = '#FFF4E2';
     g.font = '900 13px "M PLUS Rounded 1c"';
     g.textAlign = 'center';
-    g.fillText(T('FROM THE KITCHEN', '厨房出餐'), 137, 226);
+    // on the red sign of the kitchen hatch (stage x 35-151, y 139-190 in the painted counter)
+    if (T('en', 'zh') === 'en') {
+      g.fillText('FROM THE', 93, 161);
+      g.fillText('KITCHEN', 93, 177);
+    } else g.fillText('厨房出餐', 93, 169);
     g.textAlign = 'left';
     return;
   }
