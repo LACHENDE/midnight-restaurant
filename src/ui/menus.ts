@@ -52,18 +52,25 @@ export const STEPS = {
     T('Collect the coins, clear the bowl, wipe the counter', '收硬币，收碗，擦台面'),
   ],
 };
-// practising at the counter, しばBot cooks and can't hear you: Send tells it
-const stepsFor = role =>
-  role === 'counter' && G.MODE === 'bot'
-    ? STEPS.counter.map((x, i) =>
-        i === 2
+// the steps for tonight: the first night the cook reads the ticket; practising at the counter, Send tells しばBot
+const stepsFor = (role, N) =>
+  STEPS[role].map((x, i) => {
+    if (role === 'cook' && i === 3 && N.open)
+      return T('Add the toppings on the ticket (and listen to your partner)', '加单子上的配料（也听搭档说）');
+    if (role === 'counter' && i === 2)
+      return N.open
+        ? T(
+            'Say the order out loud to the cook (tonight their ticket shows it too)',
+            '把订单大声说给厨师听（今晚厨师的单子上也有）',
+          )
+        : G.MODE === 'bot'
           ? T(
-              'Say the order, then tap Send so しばBot knows. It fades: tap もう一度 if you forget',
-              '说出订单，再点发送让 しばBot 知道。订单会消失：忘了就点もう一度',
+              'Say the order, then tap Send so しばBot knows. It fades: もう一度 brings it back',
+              '说出订单，再点发送让 しばBot 知道。订单会消失：点もう一度再看',
             )
-          : x,
-      )
-    : STEPS[role];
+          : x;
+    return x;
+  });
 export const langBtn = () => {
   const b = $('#langBtn');
   b.hidden = !!HUB;
@@ -96,29 +103,44 @@ export function readyUI() {
     plan = N.rush ? rushPlan(N.n) : null,
     size = plan
       ? `${plan.total} ${T('guests', '位客人')} · ${plan.flags.length} ${T('big waves', '大波')}${best ? ` · ${T('record', '纪录')} ¥${best.toLocaleString('ja-JP')}` : ''}`
-      : `${N.guests.length} ${T('guests', '位客人')}`;
-  ui(`<div class="kicker">${T('Tonight', '今晚')} · ${esc(T(N.name[0], N.name[1]))} · ${size}</div><h2>${cook ? T('You cook', '你煮面') : T('You run the counter', '你管柜台')}</h2>
-    <p class="lead">${
-      cook
+      : `${N.guests.length} ${T('guests', '位客人')}`,
+    // night 1 is for learning the stall: the cook sees the orders. From night 2 the counter has to say them (伝言ラーメン)
+    lead = N.open
+      ? cook
+        ? T(
+            `Tonight the orders show on your tickets, so you can learn the kitchen. From the next night they stay blank and ${p} has to tell you.`,
+            `今晚订单会显示在你的单子上，先熟悉厨房。从下一晚开始单子是空白的，要靠 ${p} 告诉你。`,
+          )
+        : T(
+            `Tonight ${p} can see the orders too, so just learn the counter. Say them out loud anyway: from the next night that's the only way.`,
+            `今晚 ${p} 也能看到订单，先熟悉柜台。还是要大声说出来：从下一晚开始只能靠你说。`,
+          )
+      : cook
         ? G.MODE === 'bot'
           ? T(
-              'しばBot runs the counter and says each order out loud. Listen: your tickets stay blank (tap 🔊 to hear one again).',
-              'しばBot 管柜台，会把每份订单说出来。仔细听：你的订单是空白的（点 🔊 再听一遍）。',
+              'しばBot runs the counter and says each order out loud. Your tickets stay blank: listen (🔊 says one again).',
+              'しばBot 管柜台，会把每份订单说出来。你的单子是空白的：仔细听（点 🔊 再听一遍）。',
             )
           : T(
-              `${p} runs the counter and hears the orders. Your tickets stay blank: ask what goes in each bowl.`,
-              `${p} 管柜台、听客人点单。你的订单是空白的：问 TA 每碗要加什么。`,
+              `Your tickets stay blank: ${p} hears the orders, so ask what goes in each bowl.`,
+              `你的单子是空白的：${p} 听客人点单，问 TA 每碗要加什么。`,
             )
         : T(
-            `${p} cooks and can't see the orders. Say each one out loud, before it fades.`,
-            `${p} 煮面，看不到订单。订单消失之前，把每份大声说出来。`,
-          )
-    }</p>
-    <ol class="steps">${(N.door && !cook ? STEPS_DOOR() : stepsFor(G.ROLE)).map(s => `<li>${esc(s)}</li>`).join('')}</ol>
-    ${N.rush ? `<p class="note"><b>${T('Rush night:', '高峰之夜：')}</b> ${T('guests trickle in, then a big wave (you get a warning first: お客さんの大群が来る！). The lanterns on the bar show when. Right bowls in a row build a combo (×2, ×3); a guest who leaves angry or a wrong bowl breaks it. いそぎ guests wait half as long but pay a double bonus.', '客人先陆续来，然后一大波（之前会有提醒：お客さんの大群が来る！）。进度条上的灯笼标出什么时候来。连续做对能叠连击（×2、×3）；客人生气离开或上错面会断掉连击。いそぎ（赶时间）的客人只等一半的时间，但奖金翻倍。')}</p>` : ''}
+            `${p} can't see the orders. Say each one out loud before it fades.`,
+            `${p} 看不到订单。订单消失之前，大声说出来。`,
+          ),
+    // the first night without the orders on the cook's tickets gets a callout
+    fresh =
+      !N.open && N.n === 2
+        ? `<div class="new"><b>${T('New tonight', '今晚的新规则')}</b> 伝言ラーメン · ${T("the cook can't see the orders. Counter, say them; cook, ask! Two guests will also ask for かため (firm noodles).", '厨师看不到订单。柜台负责说，厨师负责问！还有两位客人会要かため（面硬一点）。')}</div>`
+        : '';
+  ui(`<div class="kicker">${T('Tonight', '今晚')} · ${esc(T(N.name[0], N.name[1]))} · ${size}</div><h2>${cook ? T('You cook', '你煮面') : T('You run the counter', '你管柜台')}</h2>
+    ${fresh || `<p class="lead">${lead}</p>`}
+    <ol class="steps two">${(N.door && !cook ? STEPS_DOOR() : stepsFor(G.ROLE, N)).map(s => `<li>${esc(s)}</li>`).join('')}</ol>
+    ${N.rush ? `<p class="note"><b>${T('Rush night:', '高峰之夜：')}</b> ${T('big waves come with a warning (お客さんの大群が来る！); right bowls in a row build a combo; いそぎ guests pay double.', '大波来之前会提醒（お客さんの大群が来る！）；连续做对叠连击；いそぎ的客人奖金翻倍。')}</p>` : ''}
     ${
       canPick
-        ? `<div class="row">${NIGHTS.filter(n => n.n === 1 || n.door || store.get('night2', 0))
+        ? `<div class="row nights">${NIGHTS.filter(n => n.n === 1 || store.get('night2', 0))
             .map(
               n =>
                 `<button class="btn ${RD.n === n.n ? 'mint' : 'ghost'}" data-night="${n.n}">${esc(T(n.name[0], n.name[1]))}</button>`,
@@ -126,7 +148,7 @@ export function readyUI() {
             .join('')}</div>`
         : ''
     }
-    <div class="row"><button class="btn" data-a="ready"${RD.me ? ' disabled' : ''}>${RD.me ? T('Ready ✓', '已准备 ✓') : T('Ready', '准备好了')}</button><span class="note" style="margin:0">${G.MODE === 'bot' ? '' : RD.them ? T(`${p} is ready`, `${p} 已准备`) : T(`Waiting for ${p}…`, `等待 ${p}…`)}</span></div>`);
+    <div class="row rbar"><button class="btn" data-a="ready"${RD.me ? ' disabled' : ''}>${RD.me ? T('Ready ✓', '已准备 ✓') : T('Ready', '准备好了')}</button><span class="note" style="margin:0">${G.MODE === 'bot' ? '' : RD.them ? T(`${p} is ready`, `${p} 已准备`) : T(`Waiting for ${p}…`, `等待 ${p}…`)}</span></div>`);
 }
 export function partnerName() {
   return G.MODE === 'bot' ? 'しばBot' : HUB ? HUB.names().partner : T('your partner', '搭档');

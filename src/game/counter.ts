@@ -13,7 +13,7 @@ import { noteAct } from './teach';
 import { sparkle } from '../render/particles';
 import { toCook } from '../net/messages';
 import { comboBreak, comboUp, floatYen, hudPush, patSecs, patTell, payFor, rushTick } from './rush';
-import { AGAIN, hidden, orderLine, whyLine } from './tel';
+import { AGAIN, autoSend, hidden, orderLine, whyLine } from './tel';
 
 export const NOW_GUEST = () => NIGHTS[C.n - 1].guests;
 export function spawnGuest() {
@@ -94,6 +94,7 @@ export function cTake(si) {
   SFX.ding();
   noteAct();
   toCook({ t: 'order', cid: g.id, who: g.who, hurry: !!g.hurry });
+  if (autoSend()) cSend(si); // the first night: the order goes straight onto the cook's ticket
   return true;
 }
 export function cSend(si) {

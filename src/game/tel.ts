@@ -1,13 +1,20 @@
 // 伝言ラーメン (Telephone Ramen): the cook never sees the order. The guest says it once, to the counter, and the counter
 // has to say it to the cook — so the two of you have to talk. ?easy=1 turns it off (the cook's tickets show the order).
 import { G } from './G';
-import { MODS, WORDS } from '../data/content';
+import { MODS, NIGHTS, WORDS } from '../data/content';
 
 export const EASY = typeof location !== 'undefined' && /[?&]easy=1/.test(location.search);
+/** the first night is for learning the stall: the cook sees every order on the ticket */
+export const openNight = () => {
+  const N = G.NIGHT && NIGHTS[G.NIGHT.n - 1];
+  return !!(N && N.open);
+};
+/** the order goes straight onto the cook's ticket when the counter takes it */
+export const autoSend = () => EASY || openNight();
 /** the cook's tickets stay blank: a person cooks, and somebody else (a person, or しばBot) hears the orders */
-export const hidden = () => !EASY && (G.MODE === 'net' || (G.MODE === 'bot' && G.ROLE === 'cook'));
+export const hidden = () => !autoSend() && (G.MODE === 'net' || (G.MODE === 'bot' && G.ROLE === 'cook'));
 /** the counter's order card fades once the guest has said it (not for the very first, fully taught guest) */
-export const fades = g => !EASY && G.ROLE === 'counter' && !!g && g.teach < 2;
+export const fades = g => !autoSend() && G.ROLE === 'counter' && !!g && g.teach < 2;
 /** how long the guest's words stay up: a little longer for a longer order */
 export const sayFor = g => 3.2 + 0.7 * ((g.o ? g.o.length : 1) + (g.mod ? 1 : 0)) + (g.intro ? 3 : 0);
 export const cardUp = g => !fades(g) || G.clock - (g.saidAt || 0) < sayFor(g);

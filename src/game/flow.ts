@@ -111,7 +111,7 @@ export function showClose(sum) {
     ${telCard(sum)}
     ${words.length ? `<p class="note" style="margin-bottom:0">${T('Words you used tonight', '今晚用到的单词')}</p><div class="words">${words.map(w => `<span><img src="${ICON[w]}" alt="">${WORDS[w].k}<small>${WORDS[w].ro} · ${esc(mean(w))} ×${sum.words[w]}</small></span>`).join('')}${mods.map(m => `<span>${MODS[m].k}<small>${MODS[m].ro} · ${esc(modMean(m))} ×${sum.mods[m]}</small></span>`).join('')}</div>` : ''}
     ${newDec.length ? `<p class="note" style="color:#2C8F72;font-weight:900">${T('New for the stall:', '小摊添了新东西：')} ${newDec.map(d => esc(T(d.nm[0], d.nm[1]))).join(' · ')}</p>` : ''}
-    ${sum.n === 1 && nxt && !HUB ? `<p class="note">${T('Next night: two seats, two-topping orders, and a new word: なると.', '下一晚：两个座位，两种配料的订单，还有新单词：なると。')}</p>` : ''}
+    ${sum.n === 1 && nxt && !HUB ? `<p class="new">${T("Next night: two seats, a new word (なると), and the cook can't see the orders anymore. Counter, say them out loud!", '下一晚：两个座位，新单词（なると），而且厨师再也看不到订单了。柜台要大声说出来！')}</p>` : ''}
     <div class="row">${btns}</div>`);
 }
 

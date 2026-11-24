@@ -25,9 +25,10 @@ export const CL = {
   teapot: { x: 900, y: 376 },
   cloth: { x: 810, y: 438 },
   queue: [
-    { x: 880, y: 292 },
-    { x: 950, y: 300 },
-    { x: 820, y: 302 },
+    { x: 862, y: 292 },
+    { x: 930, y: 300 },
+    { x: 804, y: 304 },
   ],
 };
-export const seatX = n => (n === 1 ? [560] : n === 3 ? [330, 560, 790] : [470, 700]);
+// three seats sit a little left so the right one's coins and wet spot stay clear of the teapot, and the line in the rain shows
+export const seatX = n => (n === 1 ? [560] : n === 3 ? [300, 510, 720] : [470, 700]);

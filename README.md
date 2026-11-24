@@ -15,7 +15,7 @@ It is also the second game in 夜ふかし Up All Night (https://lachende.github
 | Drag on the toppings your partner names; drag a wrong one off to the plate. | Hold the teapot over their cup while they wait (a small, capped patience boost). |
 | Slide the bowl to the pass. A bowl that comes back can be fixed and sent again. | Drag the bowl from the pass to the guest. A wrong bowl is refused: drag it back to the kitchen. Then tap the coins, clear the bowl into the dishes, and rub the counter clean. |
 
-**伝言ラーメン (Telephone Ramen):** the cook's tickets stay blank ("?") all night, so every order has to be said out loud, and the end of the night shows what each guest asked for next to the wrong bowls that reached them. From Night 2, guests also ask for it a certain way, as real ramen shops do: **かため** (firm noodles: lift them early), **やわらかめ** (soft: leave them in until the orange), **スープおおめ** (extra broth: pour until it drips). The dial marks the かため and やわらかめ parts on nights that use them. Add `?easy=1` to the address to show the orders on the cook's tickets again (for anyone who can't talk while playing).
+**伝言ラーメン (Telephone Ramen):** the first night is for learning the stall, so the cook's tickets show each order as soon as the counter takes it. From Night 2 the cook's tickets stay blank ("?") all night, so every order has to be said out loud, and the end of the night shows what each guest asked for next to the wrong bowls that reached them. From Night 2, guests also ask for it a certain way, as real ramen shops do: **かため** (firm noodles: lift them early), **やわらかめ** (soft: leave them in until the orange), **スープおおめ** (extra broth: pour until it drips). The dial marks the かため and やわらかめ parts on nights that use them. Add `?easy=1` to the address to show the orders on the cook's tickets again (for anyone who can't talk while playing).
 
 ## The nights
 
@@ -28,13 +28,12 @@ It is also the second game in 夜ふかし Up All Night (https://lachende.github
    - Two-topping orders, and なると (fish-cake swirl) arrives.
    - Guests have patience now. Tea helps, and the counter still controls how many guests come in.
 
-3. **At the door · 接客** (gentle): groups arrive, and the counter greets them, asks how many, and shows them in.
-4. **Rush hour** (3 seats, 18 guests), Plants-vs-Zombies style: よーい… いらっしゃいませ！, then guests trickle in and come in **big waves**. Each wave is announced first (**お客さんの大群が来る！**), and a progress bar with lantern flags shows when. The stars are yen, and the best score is kept.
-5. **The last train · 終電** (3 seats, 27 guests): shorter patience, three-topping orders, two big waves, and a final wave where everyone is in a hurry.
+3. **Rush hour** (3 seats, 18 guests), Plants-vs-Zombies style: よーい… いらっしゃいませ！, then guests trickle in and come in **big waves**. Each wave is announced first (**お客さんの大群が来る！**), and a progress bar with lantern flags shows when. The stars are yen, and the best score is kept.
+4. **The last train · 終電** (3 seats, 27 guests): shorter patience, three-topping orders, two big waves, and a final wave where everyone is in a hurry.
 
-Night 2 ends with two かため orders; Night 4 adds スープおおめ (a quarter of orders ask for something); Night 5 adds やわらかめ (about a third).
+Night 2 ends with two かため orders; Night 3 adds スープおおめ (a quarter of orders ask for something); Night 4 adds やわらかめ (about a third). The door night (接客) was taken out in Nov 2026; its code is still in `src/game/door.ts`.
 
-**On every night with patience (2, 4, 5):**
+**On every night with patience (2, 3, 4):**
 - **Combo:** right bowls in a row raise the bonus multiplier, ×2 from 3 in a row and ×3 from 6 (いいね！ → すごい！ → さいこう！ on both phones). A guest who leaves angry or a refused bowl breaks it (あ〜…).
 - **Speed:** the faster the bowl, the bigger the bonus. **いそぎ guests** (rush nights) wait half as long and pay a double bonus.
 - **The cook feels it too:** tickets turn orange, then red, as their guest loses patience, and come down crossed out if the guest gives up.

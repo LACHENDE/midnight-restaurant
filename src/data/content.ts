@@ -35,6 +35,7 @@ export interface Night {
   name: [string, string];
   seats: number;
   gentle: boolean;
+  open?: boolean; // the cook sees the orders tonight (伝言ラーメン starts on night 2)
   door?: boolean;
   rush?: Rush;
   words: string[];
@@ -140,6 +141,7 @@ export const NIGHTS: Night[] = [
     name: ['First night', '第一晚'],
     seats: 1,
     gentle: true,
+    open: true,
     words: ['tamago'],
     guests: [
       { who: 'haru', o: ['tamago'], teach: 2 },
@@ -162,27 +164,9 @@ export const NIGHTS: Night[] = [
       { who: 'ken', o: ['negi'], teach: 0, mod: 'katame' },
     ],
   },
-  // 接客 at the door: groups come in, and the counter greets them, asks how many, shows them in (or asks them to wait), and sees them off
-  {
-    n: 3,
-    name: ['At the door · 接客', '门口接客'],
-    seats: 3,
-    gentle: true,
-    door: true,
-    words: ['tamago', 'negi', 'naruto'],
-    guests: [
-      { who: 'haru', o: ['tamago'], teach: 2, grp: 1 },
-      { who: 'ken', o: ['negi'], teach: 1, grp: 2 },
-      { who: 'mika', o: ['tamago'], teach: 1, grp: 2 },
-      { who: 'sora', o: ['naruto'], teach: 0, grp: 3 },
-      { who: 'yuki', o: ['tamago', 'negi'], teach: 0, grp: 4 },
-      { who: 'haru', o: ['naruto'], teach: 0, grp: 4 },
-      { who: 'mika', o: ['negi'], teach: 0, grp: 4 },
-    ],
-  },
   // rush nights: guests come in trickles and big waves (a warning first), and the stars are yen
   {
-    n: 4,
+    n: 3,
     name: ['Rush hour', '高峰时段'],
     seats: 3,
     gentle: false,
@@ -204,7 +188,7 @@ export const NIGHTS: Night[] = [
     },
   },
   {
-    n: 5,
+    n: 4,
     name: ['The last train · 終電', '末班车'],
     seats: 3,
     gentle: false,
@@ -242,4 +226,11 @@ export const hasDecor = id => G.BANK >= DECOR.find(d => d.id === id).at;
 // runs once at start, after every module has loaded (main.ts calls these in order)
 export function init(): void {
   for (const k in LOOKS) LOOKS[k].id = k;
+  // until Nov 2026 night 3 was the door night (接客): the rush nights' records move down one
+  if (!store.get('nightsV2', 0)) {
+    store.set('best3', store.get('best4', 0));
+    store.set('best4', store.get('best5', 0));
+    store.set('best5', 0);
+    store.set('nightsV2', 1);
+  }
 }

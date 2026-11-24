@@ -9,7 +9,7 @@ import { SFX } from '../audio/sfx';
 import { bowlTopAt } from '../render/shapes';
 import { doorGroup, doorHint, doorWant } from './door';
 import { freeSeat } from './counter';
-import { cardUp, orderText } from './tel';
+import { cardUp, openNight, orderText } from './tel';
 
 G.lastAct = 0;
 export const noteAct = () => {
@@ -161,6 +161,15 @@ export function hintCounter(): Hint | null {
   for (const s of seat) {
     const g = s.g;
     if (!g) continue;
+    // the first night the ticket fills by itself, but saying it is the practice
+    if (g.st === 'order' && openNight() && g.t < 7)
+      return {
+        t: T(
+          `Say 「${orderText(g.o, g.mod)}」 out loud to the cook (tonight it's on their ticket too)`,
+          `把「${orderText(g.o, g.mod)}」大声说给厨师听（今晚厨师的订单上也有）`,
+        ),
+        at: { x: s.x, y: 120 },
+      };
     if (g.st === 'order' && !g.sent && (G.MODE === 'bot' || cardUp(g))) {
       const line = orderText(g.o, g.mod);
       return {

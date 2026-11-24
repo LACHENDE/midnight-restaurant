@@ -1075,3 +1075,78 @@ input.codein {
   font: 900 13px var(--ui);
   color: #2c8f72;
 }
+/* the ready card: two columns of steps, small night chips, and the Ready bar always on screen */
+.steps.two {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  column-gap: 16px;
+}
+.steps.two li {
+  font-size: 12.5px;
+  line-height: 1.35;
+}
+.row.nights {
+  gap: 6px;
+  margin-top: 8px;
+}
+.row.nights .btn {
+  padding: 6px 11px;
+  font-size: 12px;
+  border-radius: 10px;
+}
+.row.rbar {
+  position: sticky;
+  bottom: -16px;
+  margin: 10px -20px -16px;
+  padding: 10px 20px 14px;
+  background: var(--cream);
+  border-top: 1px solid rgba(59, 38, 24, 0.12);
+  z-index: 1;
+}
+.row.rbar .btn {
+  padding: 12px 28px;
+  font-size: 15px;
+}
+.panel .new {
+  margin: 6px 0 2px;
+  padding: 7px 11px;
+  border-radius: 12px;
+  background: #ffe1a6;
+  font: 800 12.5px/1.4 var(--ui);
+  color: var(--ink);
+}
+.panel .new b {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--red);
+  color: var(--cream);
+  font: 900 11px var(--ui);
+}
+/* phones held sideways: the ready card fits without scrolling */
+@media (max-height: 430px) {
+  .panel h2 {
+    font-size: 20px;
+    margin: 2px 0 4px;
+  }
+  .steps.two li {
+    font-size: 12px;
+    margin: 1px 0;
+  }
+  .panel .note {
+    font-size: 11.5px;
+    margin-top: 5px;
+  }
+  .panel .new {
+    font-size: 12px;
+    padding: 5px 10px;
+  }
+}
+@media (max-height: 400px) {
+  .row.rbar {
+    bottom: -12px;
+    margin: 8px -16px -12px;
+    padding: 8px 16px 10px;
+  }
+}
