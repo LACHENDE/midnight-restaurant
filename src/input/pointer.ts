@@ -8,10 +8,11 @@ import { LIFT, VH, VW } from '../render/dims';
 import { NIGHTS } from '../data/content';
 import { SFX, audio, buzz } from '../audio/sfx';
 import { bowlTopAt } from '../render/shapes';
-import { cClear, cCollect, cReturn, cSeat, cSend, cServe, cTake, cTea, cWipe } from '../game/counter';
+import { cAgain, cClear, cCollect, cReturn, cSeat, cSend, cServe, cTake, cTea, cWipe } from '../game/counter';
+import { unlockVoice } from '../game/tel';
 import { cSay, micListen } from '../game/door';
 import { dist } from '../core/env';
-import { kDump, kLift, kLower, kNest, kPour, kSlide, kTakeBack, kTop, kUntop } from '../game/kitchen';
+import { kDump, kHear, kLift, kLower, kNest, kPour, kSlide, kTakeBack, kTop, kUntop } from '../game/kitchen';
 
 // where this player's finger (or mouse) is, and when it last moved: the partner sees it as a hand in their window
 export const PTR = { x: VW / 2, y: VH / 2, down: false, at: -9 };
@@ -257,11 +258,22 @@ export function init(): void {
     PTRS.delete(e.pointerId);
   });
   document.addEventListener('click', e => {
+    unlockVoice(); // iPhones only let a page speak after a tap
     const b = (e.target as Element).closest('button');
     if (!b) return;
     if (b.dataset.send != null) {
       audio();
       cSend(+b.dataset.send);
+      return;
+    }
+    if (b.dataset.again != null) {
+      audio();
+      cAgain(+b.dataset.again);
+      return;
+    }
+    if (b.dataset.hear != null) {
+      audio();
+      kHear(+b.dataset.hear);
       return;
     }
     if (b.dataset.reveal != null) {

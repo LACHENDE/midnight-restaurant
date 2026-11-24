@@ -3,7 +3,7 @@ import { G } from '../game/G';
 import { C, K, isEmpty, trayOpen } from '../game/night-state';
 import { CL, KL } from '../data/layout';
 import { EATING, KSP, LAYER, LIFT, VH, VW, artReady, ctx, kenClip, kenLeave, kenLen, kenOn, mkLayer } from './stage';
-import { LOOKS, NIGHTS, WORDS, known, prop } from '../data/content';
+import { LOOKS, NIGHTS, WORDS, known, modsOf, prop } from '../data/content';
 import { PTR } from '../input/pointer';
 import { T, TAU, clamp, rnd } from '../core/env';
 import {
@@ -105,6 +105,24 @@ export function drawKitchen(dt) {
       rr(g, D.x - 78 + (a / 18) * 156, D.y - 5, ((c - a) / 18) * 156, 10, 4);
       g.fill();
     });
+    // tonight guests may ask for かため (out early) or やわらかめ (left in): their part of the dial is marked
+    const mods = G.NIGHT ? modsOf(NIGHTS[G.NIGHT.n - 1]) : [],
+      zx = (v: number) => D.x - 78 + (v / 18) * 156;
+    g.font = '900 10px "M PLUS Rounded 1c"';
+    g.textAlign = 'center';
+    for (const [m, a, c] of [
+      ['katame', 3.5, 5.5],
+      ['yawa', 12, 16],
+    ] as [string, number, number][]) {
+      if (!mods.includes(m)) continue;
+      const cx = (zx(a) + zx(c)) / 2,
+        w = m === 'yawa' ? 58 : 40;
+      rr(g, cx - w / 2, D.y - 36, w, 15, 7);
+      g.fillStyle = '#FFF4E2';
+      g.fill();
+      g.fillStyle = '#3B2618';
+      g.fillText(m === 'yawa' ? 'やわらかめ' : 'かため', cx, D.y - 25);
+    }
     const px = D.x - 78 + (t / 18) * 156;
     g.fillStyle = '#3B2618';
     g.beginPath();
@@ -117,13 +135,17 @@ export function drawKitchen(dt) {
     g.font = '900 11px "M PLUS Rounded 1c"';
     g.textAlign = 'center';
     g.fillText(
-      {
-        raw: T('not yet', '还没好'),
-        ready: T('ready!', '好了！'),
-        perfect: 'カンペキ！',
-        soft: T('soft', '软了'),
-        soggy: T('soggy', '烂了'),
-      }[b.done],
+      b.done === 'ready' && b.t < 5.5 && mods.includes('katame')
+        ? T('ready! (かため)', '好了！（かため）')
+        : b.done === 'soft' && mods.includes('yawa')
+          ? T('soft (やわらかめ)', '软了（やわらかめ）')
+          : {
+              raw: T('not yet', '还没好'),
+              ready: T('ready!', '好了！'),
+              perfect: 'カンペキ！',
+              soft: T('soft', '软了'),
+              soggy: T('soggy', '烂了'),
+            }[b.done],
       D.x,
       D.y + 28,
     );
@@ -494,7 +516,7 @@ export function drawCounter(dt) {
     }
     const pd = dk('pbowl'),
       pb = pd && C.pass.find(b => b.id === pd.id);
-    gg.hover = !!(pb && gg.st === 'order' && Math.abs(pd.x - s.x) < 110 && pd.y > 150 && !judge(pb, gg.o).ok);
+    gg.hover = !!(pb && gg.st === 'order' && Math.abs(pd.x - s.x) < 110 && pd.y > 150 && !judge(pb, gg.o, gg.mod).ok);
     const mood =
       gg.st === 'eat'
         ? 'eat'
@@ -504,11 +526,13 @@ export function drawCounter(dt) {
             : 'happy'
           : gg.st === 'refused'
             ? 'hmm'
-            : gg.happyT > 0
-              ? 'happy'
-              : gg.st === 'ask'
-                ? 'ask'
-                : '';
+            : gg.annoyT > 0
+              ? 'hmm'
+              : gg.happyT > 0
+                ? 'happy'
+                : gg.st === 'ask'
+                  ? 'ask'
+                  : '';
     g.globalAlpha = a;
     drawGuest(g, LOOKS[gg.who], x, y, sc, mood, {
       t: G.clock,

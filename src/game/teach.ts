@@ -9,6 +9,7 @@ import { SFX } from '../audio/sfx';
 import { bowlTopAt } from '../render/shapes';
 import { doorGroup, doorHint, doorWant } from './door';
 import { freeSeat } from './counter';
+import { cardUp, orderText } from './tel';
 
 G.lastAct = 0;
 export const noteAct = () => {
@@ -48,7 +49,14 @@ export function hintCook(): Hint | null {
     bw = K.slots[si] || K.slots[1 - si],
     s = KL.slots[si];
   if (!bw) return null;
-  if (bw.why && bw.why !== 'tops' && bw.why !== 'broth' && bw.noodles)
+  const wy = bw.why && (bw.why.why || bw.why); // a bowl that came back knows why
+  if (wy === 'oome' && bw.broth < 0.98)
+    return {
+      t: T('They want スープおおめ: keep pouring until it drips', '客人要スープおおめ：一直倒到碗边开始滴'),
+      from: { x: KL.ladle.x - 30, y: KL.ladle.y + 10 },
+      to: s,
+    };
+  if (wy && wy !== 'tops' && wy !== 'broth' && wy !== 'oome' && bw.noodles)
     return {
       t: T('Start this bowl again: drag it to the plate to empty it', '这碗重做：拖到盘子里倒掉'),
       from: s,
@@ -79,7 +87,13 @@ export function hintCook(): Hint | null {
     };
   if (!tk.o)
     return {
-      t: T('Which topping? Ask the counter what they ordered', '加什么？问柜台客人点了什么'),
+      t:
+        G.MODE === 'bot'
+          ? T(
+              'Which topping? Listen to しばBot (tap 🔊 on the ticket to hear it again)',
+              '加什么？听 しばBot 说（点订单上的 🔊 再听一遍）',
+            )
+          : T("Which topping? Ask the counter: you can't see the orders", '加什么？问柜台：你看不到订单'),
       at: { x: 900, y: 100 },
     };
   const miss = tk.o.find(w => !bw.tops.includes(w));
@@ -147,14 +161,16 @@ export function hintCounter(): Hint | null {
   for (const s of seat) {
     const g = s.g;
     if (!g) continue;
-    if (g.st === 'order' && !g.sent)
+    if (g.st === 'order' && !g.sent && (G.MODE === 'bot' || cardUp(g))) {
+      const line = orderText(g.o, g.mod);
       return {
-        t: T(
-          `Say 「${g.o.map(w => WORDS[w].k).join('・')}」 to the cook (or tap Send ▶)`,
-          `对厨师说「${g.o.map(w => WORDS[w].k).join('・')}」（或点发送 ▶）`,
-        ),
+        t:
+          G.MODE === 'bot'
+            ? T(`Say 「${line}」, then tap Send ▶ so しばBot knows`, `说「${line}」，再点发送 ▶ 让 しばBot 知道`)
+            : T(`Say 「${line}」 to the cook: they can't see it!`, `对厨师说「${line}」：厨师看不到订单！`),
         at: { x: s.x, y: 120 },
       };
+    }
     if (g.st === 'order' && !g.tea)
       return {
         t: T('While they wait: hold the teapot over their cup', '等的时候：把茶壶按在杯子上倒茶'),

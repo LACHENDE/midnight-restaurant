@@ -10,6 +10,7 @@ export interface GuestSpec {
   teach: number;
   nw?: string;
   grp?: number;
+  mod?: string; // how they want it: かため, やわらかめ, スープおおめ (MODS)
 }
 /** one stretch of a rush night: a trickle (a guest every few seconds) or a big wave (a crowd, announced first) */
 export interface Wave {
@@ -26,6 +27,8 @@ export interface Rush {
   hurry: number; // share of いそぎ guests: half the patience, double the bonus
   tops3: number; // share of three-topping orders
   stars: [number, number, number]; // yen for ★, ★★, ★★★
+  mods?: string[]; // the ways guests may ask for it tonight (MODS)
+  mod?: number; // share of orders with one of them
 }
 export interface Night {
   n: number;
@@ -51,6 +54,35 @@ export const WORDS = {
   naruto: { k: 'なると', ro: 'naruto', m: ['fish-cake swirl', '鱼板'] },
 };
 export const mean = w => T(WORDS[w].m[0], WORDS[w].m[1]);
+// 伝言ラーメン: how a guest wants it, as real ramen shops ask. The cook can't see the order, so the counter has to say these too.
+// say: how the guest puts it; how: what the cook does
+export const MODS = {
+  katame: {
+    k: 'かため',
+    ro: 'katame',
+    m: ['firm noodles', '面硬一点'],
+    say: 'めんは かためで',
+    how: ['Lift the noodles early, in the green before the gold', '早点捞面：在金色之前的绿色里'],
+  },
+  yawa: {
+    k: 'やわらかめ',
+    ro: 'yawarakame',
+    m: ['soft noodles', '面软一点'],
+    say: 'めんは やわらかめで',
+    how: ['Leave the noodles in until the dial turns orange', '等表盘变橙色再捞面'],
+  },
+  oome: {
+    k: 'スープおおめ',
+    ro: 'sūpu ōme',
+    m: ['extra broth', '多加汤'],
+    say: 'スープ おおめで',
+    how: ['Keep pouring until the bowl starts to drip', '一直倒汤，倒到碗边开始滴'],
+  },
+};
+export const modMean = m => T(MODS[m].m[0], MODS[m].m[1]);
+/** the ways tonight's guests may ask for it */
+export const modsOf = (N: Night): string[] =>
+  N.rush ? N.rush.mods || [] : [...new Set(N.guests.map(g => g.mod).filter(Boolean))];
 export const LOOKS: Record<string, Look> = {
   haru: { nm: 'ハル', skin: '#F6CBA4', hair: '#4A2A1C', style: 'pony', coat: '#C8463A' },
   ken: { nm: 'ケン', skin: '#EFC09A', hair: '#2B2420', style: 'cap', coat: '#5E7B4C' },
@@ -126,8 +158,8 @@ export const NIGHTS: Night[] = [
       { who: 'sora', o: ['naruto'], teach: 1, nw: 'naruto' },
       { who: 'haru', o: ['tamago'], teach: 0 },
       { who: 'mika', o: ['negi', 'naruto'], teach: 0 },
-      { who: 'yuki', o: ['tamago', 'naruto'], teach: 0 },
-      { who: 'ken', o: ['negi'], teach: 0 },
+      { who: 'yuki', o: ['tamago', 'naruto'], teach: 0, mod: 'katame' },
+      { who: 'ken', o: ['negi'], teach: 0, mod: 'katame' },
     ],
   },
   // 接客 at the door: groups come in, and the counter greets them, asks how many, shows them in (or asks them to wait), and sees them off
@@ -167,6 +199,8 @@ export const NIGHTS: Night[] = [
       hurry: 0.15,
       tops3: 0,
       stars: [10000, 22000, 36000],
+      mods: ['katame', 'oome'],
+      mod: 0.25,
     },
   },
   {
@@ -189,6 +223,8 @@ export const NIGHTS: Night[] = [
       hurry: 0.25,
       tops3: 0.15,
       stars: [18000, 40000, 65000],
+      mods: ['katame', 'yawa', 'oome'],
+      mod: 0.35,
     },
   },
 ];

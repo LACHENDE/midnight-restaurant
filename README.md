@@ -10,12 +10,12 @@ It is also the second game in 夜ふかし Up All Night (https://lachende.github
 | Cook (kitchen view) | Counter (counter view) |
 |---|---|
 | Drag noodles into the basket, the basket into the boiling pot. | Drag a guest in from the rain to a free seat (you decide when). |
-| Watch the dial (a wide green window) and lift the basket onto a bowl. | Tap them when they raise a hand: their order appears (picture, kana, romaji, meaning). |
-| Hold the ladle over the bowl to pour the broth. | Say the word to the cook, or tap **Send ▶** (the picture fallback). |
+| Watch the dial (a wide green window) and lift the basket onto a bowl. | Tap them when they raise a hand: they say their order once (picture, kana, romaji, meaning), then the card fades. **もう一度** brings it back, but the guest loses a little patience. |
+| Hold the ladle over the bowl to pour the broth. | Say the order to the cook. Online there is no Send button: the cook can't see it any other way. |
 | Drag on the toppings your partner names; drag a wrong one off to the plate. | Hold the teapot over their cup while they wait (a small, capped patience boost). |
 | Slide the bowl to the pass. A bowl that comes back can be fixed and sent again. | Drag the bowl from the pass to the guest. A wrong bowl is refused: drag it back to the kitchen. Then tap the coins, clear the bowl into the dishes, and rub the counter clean. |
 
-The cook sees a "?" ticket when an order comes in, and the picture only once the counter sends it, so the two of you talk. The game never listens for speech.
+**伝言ラーメン (Telephone Ramen):** the cook's tickets stay blank ("?") all night, so every order has to be said out loud, and the end of the night shows what each guest asked for next to the wrong bowls that reached them. From Night 2, guests also ask for it a certain way, as real ramen shops do: **かため** (firm noodles: lift them early), **やわらかめ** (soft: leave them in until the orange), **スープおおめ** (extra broth: pour until it drips). The dial marks the かため and やわらかめ parts on nights that use them. Add `?easy=1` to the address to show the orders on the cook's tickets again (for anyone who can't talk while playing).
 
 ## The nights
 
@@ -31,6 +31,8 @@ The cook sees a "?" ticket when an order comes in, and the picture only once the
 3. **At the door · 接客** (gentle): groups arrive, and the counter greets them, asks how many, and shows them in.
 4. **Rush hour** (3 seats, 18 guests), Plants-vs-Zombies style: よーい… いらっしゃいませ！, then guests trickle in and come in **big waves**. Each wave is announced first (**お客さんの大群が来る！**), and a progress bar with lantern flags shows when. The stars are yen, and the best score is kept.
 5. **The last train · 終電** (3 seats, 27 guests): shorter patience, three-topping orders, two big waves, and a final wave where everyone is in a hurry.
+
+Night 2 ends with two かため orders; Night 4 adds スープおおめ (a quarter of orders ask for something); Night 5 adds やわらかめ (about a third).
 
 **On every night with patience (2, 4, 5):**
 - **Combo:** right bowls in a row raise the bonus multiplier, ×2 from 3 in a row and ×3 from 6 (いいね！ → すごい！ → さいこう！ on both phones). A guest who leaves angry or a refused bowl breaks it (あ〜…).
@@ -50,7 +52,7 @@ Romaji and meanings step back once you've served a word three times (tap **?** t
   - **Drops:** the game pauses while the link is down and counts back in when it returns.
   - **Reloads:** a reloaded page rejoins the room by itself (for 10 minutes).
 - **Inside 夜ふかし:** the hub page holds the connection and the roles; this page runs in a frame and talks to it through `window.HUBAPI`.
-- **Solo practice:** you take one role and しばBot takes the other. As the counter, tap **Send ▶** so the bot knows the order, because it can't hear you.
+- **Solo practice:** you take one role and しばBot takes the other. As the counter, tap **Send ▶** so the bot knows the order, because it can't hear you. As the cook, しばBot says each order out loud in Japanese (the phone's own speech voice, with the words shown for a few seconds); tap 🔊 on a ticket to hear it again, at a little of the guest's patience.
 - There is no shared-device (one screen) mode.
 
 ## Running it

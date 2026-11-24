@@ -3,7 +3,8 @@ import { G } from './G';
 import { $, HUB, T, esc, store } from '../core/env';
 import { BC, BK } from './bot';
 import { C, cReset, kReset, meCook } from './night-state';
-import { DECOR, MASTER, NIGHTS, WORDS, mean } from '../data/content';
+import { DECOR, LOOKS, MASTER, MODS, NIGHTS, WORDS, mean, modMean } from '../data/content';
+import { orderText } from './tel';
 import { ICON } from '../render/shapes';
 import { ICONSVG, hideUI, ui } from '../ui/menus';
 import { LAYER } from '../render/stage';
@@ -48,6 +49,9 @@ export function closeNight() {
       rush: !!N.rush,
       missed: C.missed,
       streak: C.bestStreak,
+      mods: C.mods,
+      log: C.log,
+      again: C.again,
     };
   if (N.rush) sum.total = rushPlan(C.n).total;
   if (G.MODE === 'net') netSend({ t: 'close', sum });
@@ -60,6 +64,9 @@ export function showClose(sum) {
   SFX.close();
   for (const w in sum.words) {
     MASTER[w] = (MASTER[w] || 0) + sum.words[w];
+  }
+  for (const m in sum.mods || {}) {
+    MASTER[m] = (MASTER[m] || 0) + sum.mods[m];
   }
   store.set('mastery', MASTER);
   const before = G.BANK;
@@ -86,7 +93,8 @@ export function showClose(sum) {
   $('#tix').innerHTML = '';
   $('#say').hidden = true;
   if (HUB) HUB.result({ score: sum.earned, stars, win: sum.served === sum.total });
-  const words = Object.keys(sum.words);
+  const words = Object.keys(sum.words),
+    mods = Object.keys(sum.mods || {});
   const N = NIGHTS[sum.n - 1],
     nxt = sum.n < NIGHTS.length && store.get('night2', 0);
   let btns;
@@ -100,8 +108,54 @@ export function showClose(sum) {
     <div class="stars">${'★'.repeat(stars)}<span class="off">${'★'.repeat(3 - stars)}</span></div>
     ${record ? `<p class="record">${T('New record!', '新纪录！')} 新記録！</p>` : ''}
     <div class="stats"><span>${T('Bowls served', '上了几碗')}<b>${sum.served}/${sum.total}</b></span>${R ? `<span>${T('Best combo', '最长连击')}<b>${sum.streak || 0}</b></span><span>${T('Record', '纪录')}<b>¥${Math.max(best, sum.earned).toLocaleString('ja-JP')}</b></span>` : ''}<span>${T('Tonight', '今晚收入')}<b>¥${sum.earned.toLocaleString('ja-JP')}</b></span><span>${T('Stall savings', '小摊存款')}<b>¥${G.BANK.toLocaleString('ja-JP')}</b></span>${sum.sk ? `<span>接客<b>${sum.sk.ok}/${sum.sk.ok + sum.sk.bad}</b></span>` : ''}</div>
-    ${words.length ? `<p class="note" style="margin-bottom:0">${T('Words you used tonight', '今晚用到的单词')}</p><div class="words">${words.map(w => `<span><img src="${ICON[w]}" alt="">${WORDS[w].k}<small>${WORDS[w].ro} · ${esc(mean(w))} ×${sum.words[w]}</small></span>`).join('')}</div>` : ''}
+    ${telCard(sum)}
+    ${words.length ? `<p class="note" style="margin-bottom:0">${T('Words you used tonight', '今晚用到的单词')}</p><div class="words">${words.map(w => `<span><img src="${ICON[w]}" alt="">${WORDS[w].k}<small>${WORDS[w].ro} · ${esc(mean(w))} ×${sum.words[w]}</small></span>`).join('')}${mods.map(m => `<span>${MODS[m].k}<small>${MODS[m].ro} · ${esc(modMean(m))} ×${sum.mods[m]}</small></span>`).join('')}</div>` : ''}
     ${newDec.length ? `<p class="note" style="color:#2C8F72;font-weight:900">${T('New for the stall:', '小摊添了新东西：')} ${newDec.map(d => esc(T(d.nm[0], d.nm[1]))).join(' · ')}</p>` : ''}
     ${sum.n === 1 && nxt && !HUB ? `<p class="note">${T('Next night: two seats, two-topping orders, and a new word: なると.', '下一晚：两个座位，两种配料的订单，还有新单词：なると。')}</p>` : ''}
     <div class="row">${btns}</div>`);
+}
+
+// 伝言ゲーム: what each guest asked for, and what reached them — the wrong ones first (the bit you screenshot)
+function telCard(sum) {
+  const L = sum.log || [];
+  if (!L.length) return '';
+  const bad = L.filter(e => !e.ok),
+    good = L.length - bad.length,
+    how = e => {
+      const b = e.b,
+        a: string[] = [];
+      if (e.mod === 'katame' || e.mod === 'yawa' || e.why === 'raw' || e.why === 'noodles')
+        a.push(
+          !b.noodles
+            ? T('no noodles', '没有面')
+            : b.noodles === 'raw'
+              ? T('hard noodles', '面是硬的')
+              : b.nt < 5.5
+                ? 'かため'
+                : b.nt < 12
+                  ? T('normal noodles', '普通的面')
+                  : 'やわらかめ',
+        );
+      if (e.mod === 'oome' || e.why === 'broth' || e.why === 'oome')
+        a.push(
+          b.broth >= 0.98
+            ? 'スープおおめ'
+            : b.broth < 0.5
+              ? T('hardly any broth', '几乎没汤')
+              : T('normal broth', '普通的汤'),
+        );
+      return a.length ? ' · ' + a.join(' · ') : '';
+    },
+    made = e =>
+      e.gone
+        ? T('nothing: they left', '什么都没有：走了')
+        : (e.b.tops.length ? e.b.tops.map(w => WORDS[w].k).join('・') : T('no toppings', '没加配料')) + how(e),
+    rows = bad
+      .slice(0, 6)
+      .map(
+        e =>
+          `<div class="tr"><b>${esc(LOOKS[e.who] ? LOOKS[e.who].nm : '')}</b><span>${esc(orderText(e.o, e.mod))}</span><i>→</i><span class="got">${esc(made(e))}</span><em>✗</em></div>`,
+      )
+      .join('');
+  return `<div class="tel"><p class="note">伝言ゲーム · ${T('what they asked for → what reached them', '客人点的 → 端上去的')}</p>${rows}<p class="ok">◎ ${good} ${T(good === 1 ? 'bowl just right' : 'bowls just right', '碗刚刚好')}${bad.length ? '' : ' · 完璧！'}${sum.again ? ` · もう一度 ×${sum.again}` : ''}</p></div>`;
 }

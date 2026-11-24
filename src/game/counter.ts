@@ -3,16 +3,17 @@ import { G } from './G';
 import { C } from './night-state';
 import { CL } from '../data/layout';
 import { EATING, kenEat, kenLeave, kenLen, kenOn, kenPay } from '../render/stage';
-import { NIGHTS } from '../data/content';
+import { NIGHTS, known } from '../data/content';
 import { SFX } from '../audio/sfx';
 import { clamp, rnd } from '../core/env';
 import { closeNight } from './flow';
 import { doorTick, groupOut } from './door';
-import { newWord } from '../ui/overlays';
+import { newMod, newWord } from '../ui/overlays';
 import { noteAct } from './teach';
 import { sparkle } from '../render/particles';
 import { toCook } from '../net/messages';
 import { comboBreak, comboUp, floatYen, hudPush, patSecs, patTell, payFor, rushTick } from './rush';
+import { AGAIN, hidden, orderLine, whyLine } from './tel';
 
 export const NOW_GUEST = () => NIGHTS[C.n - 1].guests;
 export function spawnGuest() {
@@ -28,6 +29,7 @@ export function spawnGuest() {
       id,
       who: spec.who,
       o: spec.o.slice(),
+      mod: spec.mod || null,
       teach: spec.teach,
       nw: spec.nw || null,
       wait: 0,
@@ -51,6 +53,7 @@ export function cSeat(gid, si) {
     id: q.id,
     who: q.who,
     o: q.o,
+    mod: q.mod || null,
     teach: q.teach,
     nw: q.nw,
     st: 'walk',
@@ -68,8 +71,17 @@ export function cSeat(gid, si) {
   s.cup = 0;
   SFX.pop();
   noteAct();
-  toCook({ t: 'guest', cid: q.id, teach: q.teach, who: q.who, nw: q.nw, hurry: !!q.hurry });
-  if (q.nw) newWord(q.nw);
+  let nm = null;
+  if (q.mod && !C.modSeen[q.mod]) {
+    C.modSeen[q.mod] = 1;
+    if (!known(q.mod)) nm = q.mod;
+  }
+  s.g.intro = !!(q.nw || nm); // a new-word card covers the stall for a moment: their order stays up longer
+  toCook({ t: 'guest', cid: q.id, teach: q.teach, who: q.who, nw: q.nw, nm, hurry: !!q.hurry });
+  if (G.ROLE === 'counter') {
+    if (q.nw) newWord(q.nw);
+    else if (nm) newMod(nm);
+  }
   return true;
 }
 export function cTake(si) {
@@ -78,6 +90,7 @@ export function cTake(si) {
   if (!g || g.st !== 'ask') return false;
   g.st = 'order';
   g.t = 0;
+  g.saidAt = G.clock;
   SFX.ding();
   noteAct();
   toCook({ t: 'order', cid: g.id, who: g.who, hurry: !!g.hurry });
@@ -90,8 +103,34 @@ export function cSend(si) {
   g.sent = true;
   SFX.slide();
   noteAct();
-  toCook({ t: 'ticket', cid: g.id, o: g.o, who: g.who, hurry: !!g.hurry });
+  toCook({ t: 'ticket', cid: g.id, o: g.o, mod: g.mod, who: g.who, hurry: !!g.hurry });
   return true;
+}
+/** しばBot at the counter, with a person cooking: it says the order out loud instead of writing it on the ticket */
+export function cTell(si) {
+  const s = C.seats[si],
+    g = s && s.g;
+  if (!g || (g.st !== 'order' && g.st !== 'refused') || g.sent) return false;
+  g.sent = true;
+  toCook({ t: 'tell', cid: g.id, who: g.who, line: orderLine(g.o, g.mod), hurry: !!g.hurry });
+  return true;
+}
+/** もう一度お願いします: the guest says it again, and waits a little less happily */
+export function cAgain(si) {
+  const s = C.seats[si],
+    g = s && s.g;
+  if (!g || (g.st !== 'order' && g.st !== 'refused')) return false;
+  g.saidAt = G.clock;
+  askedAgain(g);
+  noteAct();
+  return true;
+}
+function askedAgain(g) {
+  g.again = (g.again || 0) + 1;
+  C.again++;
+  if (!NIGHTS[C.n - 1].gentle) g.pat = Math.max(0.04, g.pat - AGAIN);
+  g.annoyT = 0.9;
+  SFX.hmm();
 }
 export function cTea(si, dt) {
   const s = C.seats[si],
@@ -111,15 +150,33 @@ export function cTea(si, dt) {
   }
   return true;
 }
-export function judge(b, o) {
+export function judge(b, o, mod?) {
   if (!b.noodles) return { ok: false, why: 'noodles' };
   if (b.noodles === 'raw') return { ok: false, why: 'raw' };
   if (b.broth < 0.5) return { ok: false, why: 'broth' };
   const miss = o.filter(x => !b.tops.includes(x)),
     extra = b.tops.filter(x => !o.includes(x));
   if (miss.length || extra.length) return { ok: false, why: 'tops', miss, extra };
-  const nq = b.noodles === 'perfect' ? 1.25 : b.noodles === 'ready' ? 1 : 0.6;
-  return { ok: true, q: nq * (b.broth >= 0.7 && b.broth <= 1.06 ? 1 : 0.8) };
+  // かため: out before the gold; やわらかめ: left in until the orange; スープおおめ: poured until it drips
+  if (mod === 'katame' && !(b.nt < 5.5)) return { ok: false, why: 'katame' };
+  if (mod === 'yawa' && !(b.nt >= 12)) return { ok: false, why: 'yawa' };
+  if (mod === 'oome' && b.broth < 0.98) return { ok: false, why: 'oome' };
+  // made just the way they asked counts as カンペキ
+  const nq =
+    mod === 'katame' || mod === 'yawa' ? 1.25 : b.noodles === 'perfect' ? 1.25 : b.noodles === 'ready' ? 1 : 0.6;
+  return { ok: true, q: nq * (mod === 'oome' || (b.broth >= 0.7 && b.broth <= 1.06) ? 1 : 0.8) };
+}
+/** a line for the end-of-night card: what they asked for, and what reached them */
+function logIt(g, b, r) {
+  C.log.push({
+    who: g.who,
+    o: g.o,
+    mod: g.mod || null,
+    b: b ? { tops: b.tops.slice(), nt: b.nt, noodles: b.noodles, broth: b.broth } : null,
+    ok: !!(r && r.ok),
+    why: r && !r.ok ? r.why : null,
+    gone: !r,
+  });
 }
 export function cServe(pi, si) {
   const b = C.pass[pi],
@@ -127,7 +184,8 @@ export function cServe(pi, si) {
     g = s && s.g;
   if (!b || !g || (g.st !== 'order' && g.st !== 'refused') || s.bowl) return false;
   C.pass.splice(pi, 1);
-  const r = judge(b, g.o);
+  const r = judge(b, g.o, g.mod);
+  logIt(g, b, r);
   if (r.ok) {
     s.bowl = Object.assign(b, { eat: 0 });
     g.st = 'eat';
@@ -145,6 +203,7 @@ export function cServe(pi, si) {
     for (const w of g.o) {
       C.words[w] = (C.words[w] || 0) + 1;
     }
+    if (g.mod) C.mods[g.mod] = (C.mods[g.mod] || 0) + 1;
     SFX.clink();
     SFX.happy();
     toCook({ t: 'result', cid: g.id, ok: true });
@@ -154,6 +213,7 @@ export function cServe(pi, si) {
     g.st = 'refused';
     g.t = 0;
     g.why = r;
+    g.saidAt = G.clock; // they say what's wrong (and the counter has to pass it on)
     SFX.hmm();
     if (!NIGHTS[C.n - 1].gentle) comboBreak();
     toCook({ t: 'result', cid: g.id, ok: false, why: r.why });
@@ -171,11 +231,15 @@ export function cReturn(si) {
   SFX.slide();
   toCook({
     t: 'back',
-    bowl: { id: b.id, noodles: b.noodles, broth: b.broth, tops: b.tops },
+    bowl: { id: b.id, noodles: b.noodles, broth: b.broth, tops: b.tops, nt: b.nt },
     why: g.why,
-    o: g.o,
+    o: hidden() ? [] : g.o,
+    mod: hidden() ? null : g.mod,
     cid: g.id,
   });
+  // しばBot at the counter tells a cook practising alone what was wrong
+  if (hidden() && G.MODE === 'bot')
+    toCook({ t: 'tell', cid: g.id, who: g.who, line: whyLine(g.why), hurry: !!g.hurry });
   noteAct();
   return true;
 }
@@ -210,6 +274,12 @@ export function cWipe(si, amt) {
 }
 export function cRecv(m) {
   if (!C) return;
+  // a cook practising alone asked しばBot to say it again: the guest waits a little less happily
+  if (m.t === 'repeat') {
+    const s = C.seats.find(s => s.g && s.g.id === m.cid);
+    if (s && (s.g.st === 'order' || s.g.st === 'refused')) askedAgain(s.g);
+    return;
+  }
   if (m.t === 'bowl') {
     if (!C.pass.some(b => b.id === m.bowl.id) && !C.seats.some(s => s.bowl && s.bowl.id === m.bowl.id)) {
       C.pass.push(Object.assign({}, m.bowl, { at: G.clock }));
@@ -260,6 +330,7 @@ export function counterTick(dt) {
     if (!g) continue;
     g.t += dt;
     if (g.happyT > 0) g.happyT -= dt;
+    if (g.annoyT > 0) g.annoyT -= dt;
     const ken = kenOn(g);
     if (g.st === 'walk' && g.t > (ken ? kenLen('arrive') : 0.6)) {
       g.st = 'look';
@@ -276,6 +347,7 @@ export function counterTick(dt) {
         g.t = 0;
         g.sad = true;
         C.left++;
+        logIt(g, null, null);
         if (s.bowl && s.bowl.refused) s.bowl = null;
         comboBreak();
         toCook({ t: 'gone', cid: g.id });

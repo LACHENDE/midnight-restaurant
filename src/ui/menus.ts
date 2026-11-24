@@ -18,7 +18,7 @@ export const hideUI = () => {
   $('#ui').hidden = true;
 };
 export const ROLE_CARDS = p => `<div class="roles">
-  <button class="role" data-a="${p}cook"><b>${ICONSVG.pot}${T('Cook', '厨师')}</b><small>${T('Noodles into the basket, the basket into the pot, lift them when the dial is green, pour the broth, add the toppings the counter tells you, slide the bowl to the pass.', '把面放进漏勺、放进锅里，表盘变绿就捞起来，倒汤，加柜台告诉你的配料，把碗滑到出餐口。')}</small></button>
+  <button class="role" data-a="${p}cook"><b>${ICONSVG.pot}${T('Cook', '厨师')}</b><small>${T("Noodles into the basket, the basket into the pot, lift them when the dial is green, pour the broth, add the toppings the counter tells you (you can't see the orders!), slide the bowl to the pass.", '把面放进漏勺、放进锅里，表盘变绿就捞起来，倒汤，加柜台告诉你的配料（你看不到订单！），把碗滑到出餐口。')}</small></button>
   <button class="role" data-a="${p}counter"><b>${ICONSVG.bowl}${T('Counter', '柜台')}</b><small>${T('Invite guests in from the rain, hear their order and say it to the cook, pour them tea, serve the right bowl, then clear and wipe.', '把客人从雨里请进来，听他们点单并告诉厨师，给他们倒茶，端上对的碗，再收拾擦干净。')}</small></button></div>`;
 export const STEPS_DOOR = () => [
   T('A group arrives at the door: greet them (いらっしゃいませ)', '一群客人到门口：打招呼（いらっしゃいませ）'),
@@ -35,17 +35,35 @@ export const STEPS = {
     T('Drag noodles into the basket, then the basket into the boiling pot', '把面拖进漏勺，再把漏勺放进滚水锅'),
     T('Lift it when the dial is green, and tip the noodles into a bowl', '表盘变绿就提起来，把面倒进碗里'),
     T('Hold the ladle over the bowl to pour the broth', '把汤勺按在碗上倒汤'),
-    T('Add the topping your partner names (the trays are labelled in kana)', '加搭档说的配料（托盘上写着假名）'),
+    T(
+      "Add what your partner says: you can't see the orders (the trays are labelled in kana)",
+      '加搭档说的配料：你看不到订单（托盘上写着假名）',
+    ),
     T('Slide the bowl to the pass', '把碗滑到出餐口'),
   ],
   counter: [
     T('Drag a guest in from the rain to a seat', '把客人从雨里拖到座位上'),
     T('Tap them when they raise a hand: their order appears', '客人举手时点一下：会显示他点的菜'),
-    T('Say the word to the cook (or tap Send)', '把单词说给厨师听（或点"发送"）'),
+    T(
+      "Say the order to the cook: they can't see it, and it fades (tap もう一度 if you forget)",
+      '把订单说给厨师听：厨师看不到，订单也会消失（忘了就点もう一度）',
+    ),
     T('Pour tea while they wait, then serve the bowl from the pass', '等的时候倒茶，然后从出餐口端碗上桌'),
     T('Collect the coins, clear the bowl, wipe the counter', '收硬币，收碗，擦台面'),
   ],
 };
+// practising at the counter, しばBot cooks and can't hear you: Send tells it
+const stepsFor = role =>
+  role === 'counter' && G.MODE === 'bot'
+    ? STEPS.counter.map((x, i) =>
+        i === 2
+          ? T(
+              'Say the order, then tap Send so しばBot knows. It fades: tap もう一度 if you forget',
+              '说出订单，再点发送让 しばBot 知道。订单会消失：忘了就点もう一度',
+            )
+          : x,
+      )
+    : STEPS[role];
 export const langBtn = () => {
   const b = $('#langBtn');
   b.hidden = !!HUB;
@@ -80,8 +98,23 @@ export function readyUI() {
       ? `${plan.total} ${T('guests', '位客人')} · ${plan.flags.length} ${T('big waves', '大波')}${best ? ` · ${T('record', '纪录')} ¥${best.toLocaleString('ja-JP')}` : ''}`
       : `${N.guests.length} ${T('guests', '位客人')}`;
   ui(`<div class="kicker">${T('Tonight', '今晚')} · ${esc(T(N.name[0], N.name[1]))} · ${size}</div><h2>${cook ? T('You cook', '你煮面') : T('You run the counter', '你管柜台')}</h2>
-    <p class="lead">${cook ? T(`${p} runs the counter and hears the orders. Ask them what to put in each bowl.`, `${p} 管柜台、听客人点单。问 TA 每碗要加什么。`) : T(`${p} cooks. Say each order out loud so they know what to make.`, `${p} 煮面。把每份订单大声说出来，让 TA 知道做什么。`)}</p>
-    <ol class="steps">${(N.door && !cook ? STEPS_DOOR() : STEPS[G.ROLE]).map(s => `<li>${esc(s)}</li>`).join('')}</ol>
+    <p class="lead">${
+      cook
+        ? G.MODE === 'bot'
+          ? T(
+              'しばBot runs the counter and says each order out loud. Listen: your tickets stay blank (tap 🔊 to hear one again).',
+              'しばBot 管柜台，会把每份订单说出来。仔细听：你的订单是空白的（点 🔊 再听一遍）。',
+            )
+          : T(
+              `${p} runs the counter and hears the orders. Your tickets stay blank: ask what goes in each bowl.`,
+              `${p} 管柜台、听客人点单。你的订单是空白的：问 TA 每碗要加什么。`,
+            )
+        : T(
+            `${p} cooks and can't see the orders. Say each one out loud, before it fades.`,
+            `${p} 煮面，看不到订单。订单消失之前，把每份大声说出来。`,
+          )
+    }</p>
+    <ol class="steps">${(N.door && !cook ? STEPS_DOOR() : stepsFor(G.ROLE)).map(s => `<li>${esc(s)}</li>`).join('')}</ol>
     ${N.rush ? `<p class="note"><b>${T('Rush night:', '高峰之夜：')}</b> ${T('guests trickle in, then a big wave (you get a warning first: お客さんの大群が来る！). The lanterns on the bar show when. Right bowls in a row build a combo (×2, ×3); a guest who leaves angry or a wrong bowl breaks it. いそぎ guests wait half as long but pay a double bonus.', '客人先陆续来，然后一大波（之前会有提醒：お客さんの大群が来る！）。进度条上的灯笼标出什么时候来。连续做对能叠连击（×2、×3）；客人生气离开或上错面会断掉连击。いそぎ（赶时间）的客人只等一半的时间，但奖金翻倍。')}</p>` : ''}
     ${
       canPick

@@ -7,7 +7,8 @@ import { PT, drips, sparkle, splash } from '../render/particles';
 import { T, rnd } from '../core/env';
 import { botHear, toCounter } from '../net/messages';
 import { bowlTopAt } from '../render/shapes';
-import { banner, newWord, toast } from '../ui/overlays';
+import { banner, newMod, newWord, tellBubble, toast } from '../ui/overlays';
+import { speakJa } from './tel';
 import { noteAct } from './teach';
 
 // the noodles: raw, ready, then a gold カンペキ moment in the middle of ready, then soft and soggy
@@ -55,9 +56,21 @@ export function kRecv(m) {
     }
     if (!t.o) {
       t.o = m.o.slice();
+      t.mod = m.mod || null;
       SFX.ding();
     }
     botHear(m);
+    return;
+  }
+  // しばBot at the counter says the order (or what was wrong) out loud; the ticket keeps it to say again, not to show
+  if (m.t === 'tell') {
+    let t = K.tickets.find(t => t.cid === m.cid);
+    if (!t) {
+      t = { cid: m.cid, o: null, who: m.who, done: false, at: G.clock, hurry: !!m.hurry, lv: 0 };
+      K.tickets.push(t);
+    }
+    t.say = m.line;
+    if (meCook()) hearIt(t);
     return;
   }
   if (m.t === 'result') {
@@ -87,9 +100,22 @@ export function kRecv(m) {
     if (m.nw) {
       K.trays[m.nw] = 1;
       newWord(m.nw);
-    }
+    } else if (m.nm && meCook()) newMod(m.nm);
     return;
   }
+}
+function hearIt(t) {
+  tellBubble(t.who, t.say);
+  speakJa(t.say);
+}
+/** the cook practising alone taps 🔊 on a ticket: しばBot says it again (and the guest waits a little less happily) */
+export function kHear(cid) {
+  const t = K && K.tickets.find(t => t.cid === cid);
+  if (!t || !t.say || t.done) return false;
+  hearIt(t);
+  toCounter({ t: 'repeat', cid });
+  noteAct();
+  return true;
 }
 export function kitchenTick(dt) {
   const b = K.basket;
@@ -143,6 +169,7 @@ export function kLift(i) {
   const bw = K.slots[i];
   if (K.basket.st !== 'pot' || !bw || bw.noodles) return false;
   bw.noodles = K.basket.done;
+  bw.nt = Math.round(K.basket.t * 100) / 100; // how long they boiled: かため and やわらかめ are judged on it
   bw.pop = 1;
   if (bw.noodles === 'perfect' && meCook()) {
     banner('kanpeki');
@@ -213,7 +240,7 @@ export function kSlide(i) {
   buzz(10);
   toCounter({
     t: 'bowl',
-    bowl: { id: bw.id, noodles: bw.noodles, broth: +bw.broth.toFixed(2), tops: bw.tops.slice() },
+    bowl: { id: bw.id, noodles: bw.noodles, nt: bw.nt, broth: +bw.broth.toFixed(2), tops: bw.tops.slice() },
   });
   noteAct();
   return true;
@@ -222,7 +249,16 @@ export function kTakeBack(j, i) {
   const r = K.back[j];
   if (!r || (K.slots[i] && !isEmpty(K.slots[i]))) return false;
   K.back.splice(j, 1);
-  K.slots[i] = { id: r.id, noodles: r.noodles, broth: r.broth, tops: r.tops.slice(), pop: 1, why: r.why, o: r.o };
+  K.slots[i] = {
+    id: r.id,
+    noodles: r.noodles,
+    nt: r.nt,
+    broth: r.broth,
+    tops: r.tops.slice(),
+    pop: 1,
+    why: r.why,
+    o: r.o,
+  };
   SFX.land();
   noteAct();
   return true;

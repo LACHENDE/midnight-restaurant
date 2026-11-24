@@ -2,14 +2,29 @@
 import { G } from './G';
 import { C } from './night-state';
 import { NIGHTS } from '../data/content';
-import { cClear, cCollect, cRecv, cReturn, cSeat, cSend, cServe, cTake, cTea, cWipe, freeSeat, judge } from './counter';
+import {
+  cClear,
+  cCollect,
+  cRecv,
+  cReturn,
+  cSeat,
+  cSend,
+  cServe,
+  cTake,
+  cTea,
+  cTell,
+  cWipe,
+  freeSeat,
+  judge,
+} from './counter';
+import { hidden } from './tel';
 import { cSay, doorWant } from './door';
 import { rnd } from '../core/env';
 
 export const BK = { q: [], busy: null };
 export function botCookHear(m) {
   if (m.t === 'ticket') {
-    if (!BK.q.some(x => x.cid === m.cid)) BK.q.push({ cid: m.cid, o: m.o.slice() });
+    if (!BK.q.some(x => x.cid === m.cid)) BK.q.push({ cid: m.cid, o: m.o.slice(), mod: m.mod || null });
   }
   if (m.t === 'gone') {
     BK.q = BK.q.filter(j => j.cid !== m.cid);
@@ -20,7 +35,8 @@ export function botCookHear(m) {
     if (BK.busy && BK.busy.cid === m.cid) {
       BK.busy.left = Math.min(BK.busy.left, 3);
       BK.busy.o = m.o.slice();
-    } else BK.q.unshift({ cid: m.cid, o: m.o.slice(), fix: true });
+      BK.busy.mod = m.mod || null;
+    } else BK.q.unshift({ cid: m.cid, o: m.o.slice(), mod: m.mod || null, fix: true });
   }
 }
 export function botCook(dt) {
@@ -32,11 +48,15 @@ export function botCook(dt) {
   if (BK.busy) {
     BK.busy.left -= dt;
     if (BK.busy.left <= 0) {
-      const o = BK.busy.o;
+      const o = BK.busy.o,
+        mod = BK.busy.mod,
+        // かため: out early; やわらかめ: left in; otherwise the gold four times in ten
+        nt = mod === 'katame' ? 4.6 : mod === 'yawa' ? 13 : Math.random() < 0.4 ? 6.4 : 8.6,
+        noodles = nt < 5.5 ? 'ready' : nt < 7.5 ? 'perfect' : nt < 12 ? 'ready' : 'soft';
       BK.busy = null;
       cRecv({
         t: 'bowl',
-        bowl: { id: ++G.BID, noodles: Math.random() < 0.4 ? 'perfect' : 'ready', broth: 0.9, tops: o.slice() },
+        bowl: { id: ++G.BID, noodles, nt, broth: mod === 'oome' ? 1.02 : 0.9, tops: o.slice() },
       });
     }
   }
@@ -82,7 +102,9 @@ export function botCounter(dt) {
     }
     if (g.st === 'order' && !g.sent && g.t > 1.2) {
       at(s.x, 150);
-      cSend(s.i);
+      // a person is cooking: しばBot says the order out loud (伝言ラーメン), it doesn't write it on the ticket
+      if (hidden()) cTell(s.i);
+      else cSend(s.i);
       return;
     }
     if (s.bowl && s.bowl.refused && g.t > 1.2) {
@@ -102,7 +124,7 @@ export function botCounter(dt) {
   }
   for (let p = 0; p < C.pass.length; p++) {
     const b = C.pass[p];
-    const si = C.seats.findIndex(s => s.g && s.g.st === 'order' && !s.bowl && judge(b, s.g.o).ok);
+    const si = C.seats.findIndex(s => s.g && s.g.st === 'order' && !s.bowl && judge(b, s.g.o, s.g.mod).ok);
     if (si >= 0) {
       at(C.seats[si].x, 362);
       cServe(p, si);

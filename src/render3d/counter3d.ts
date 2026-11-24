@@ -166,7 +166,7 @@ function sync(dt: number) {
     if (gg.st === 'walk') { const k = Math.min(1, gg.t / (ken ? kenLen('arrive') : 0.6)); x = gg.from + (s.x - gg.from) * k; y = 286 + (318 - 286) * k - (ken ? 0 : Math.sin(k * Math.PI) * 30); sc = 0.5 + 0.5 * k; }
     if (gg.st === 'leave' && ken) { const walk = gg.t - kenLen(gg.sad ? 'furious' : 'bye') / KSP, end = kenLeave(gg); if (walk > 0) x = s.x + walk * 170; a = clamp((end - gg.t) / 0.5, 0, 1); }
     else if (gg.st === 'leave') { a = Math.max(0, 1 - gg.t / 1.4); y = 318 + gg.t * 10; }
-    gg.hover = !!(pb && gg.st === 'order' && Math.abs(pd.x - s.x) < 110 && pd.y > 150 && !judge(pb, gg.o).ok);
+    gg.hover = !!(pb && gg.st === 'order' && Math.abs(pd.x - s.x) < 110 && pd.y > 150 && !judge(pb, gg.o, gg.mod).ok);
     const mood = moodOf(gg), x0 = s.x - 190, y0 = 318 - 290;
     paintCard(c, x0, y0, g => drawGuest(g, LOOKS[gg.who], x, y, sc, mood, { t: G.clock, bob: gg.st === 'eat' && !ken ? Math.sin(G.clock * 8) * 1.5 : 0, clip: ken ? kenClip(gg) : null }));
     c.mat.opacity = a; placeCard(c, x0, y0, atY(s.x, 300, guestY));

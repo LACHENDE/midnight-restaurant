@@ -69,6 +69,11 @@ export function cReset(n) {
     bestStreak: 0,
     mult: 1,
     missed: 0,
+    // 伝言ラーメン: the ways of asking already introduced tonight, what each guest asked for vs got, もう一度 count
+    modSeen: {},
+    mods: {},
+    log: [],
+    again: 0,
   };
 }
 export function trayOpen(w) {

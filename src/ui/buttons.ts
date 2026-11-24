@@ -49,7 +49,7 @@ export function init(): void {
     if (!a) return;
     if (a === 'practice')
       return ui(
-        `<div class="kicker">${T('Practice with しばBot', '和 しばBot 练习')}</div><h2>${T('Pick your role', '选角色')}</h2><p class="lead">${T("しばBot takes the other one. As the counter, tap Send so しばBot knows the order (it can't hear you).", 'しばBot 做另一个角色。你当柜台时，要点"发送"让 しばBot 知道订单（它听不到你说话）。')}</p>${ROLE_CARDS('p')}<div class="row"><button class="btn ghost" data-a="lobby">${T('Back', '返回')}</button></div>`,
+        `<div class="kicker">${T('Practice with しばBot', '和 しばBot 练习')}</div><h2>${T('Pick your role', '选角色')}</h2><p class="lead">${T("しばBot takes the other one. As the counter, tap Send so しばBot knows the order (it can't hear you). As the cook, listen: しばBot says each order out loud.", 'しばBot 做另一个角色。你当柜台时，要点"发送"让 しばBot 知道订单（它听不到你说话）。你当厨师时，仔细听：しばBot 会把每份订单说出来。')}</p>${ROLE_CARDS('p')}<div class="row"><button class="btn ghost" data-a="lobby">${T('Back', '返回')}</button></div>`,
       );
     if (a === 'pcook' || a === 'pcounter') {
       G.MODE = 'bot';

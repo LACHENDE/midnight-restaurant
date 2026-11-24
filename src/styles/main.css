@@ -961,3 +961,117 @@ input.codein {
     transform: translateX(4px);
   }
 }
+/* 伝言ラーメン: the counter's card fades once the guest has said it; もう一度 brings it back */
+.ord.shut {
+  padding: 4px 5px 4px 10px;
+}
+.ord .q {
+  font: 900 22px var(--ui);
+  color: var(--dim);
+}
+.ord button.again {
+  background: #ffe1a6;
+  color: var(--ink);
+  padding: 6px 10px;
+  line-height: 1.1;
+}
+.ord button.again small {
+  display: block;
+  font: 800 9px var(--ui);
+  color: var(--dim);
+}
+.ord .w.mod i {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #ffe1a6;
+}
+.ord .w.mod svg {
+  width: 17px;
+  height: 17px;
+}
+.tk .tmod {
+  font: 900 12px var(--ui);
+  padding: 2px 6px;
+  border-radius: 8px;
+  background: #ffe1a6;
+}
+.tk .hear {
+  pointer-events: auto;
+  border: 0;
+  border-radius: 10px;
+  background: var(--mint);
+  font-size: 16px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+/* what しばBot just said to a cook practising alone */
+#tell .tell {
+  position: absolute;
+  left: 50%;
+  top: calc(var(--st) + 50px);
+  transform: translateX(-50%);
+  max-width: 70vw;
+  background: var(--cream);
+  border-radius: 16px;
+  padding: 7px 16px 8px;
+  box-shadow:
+    0 0 0 3px #ffe1a6,
+    0 8px 22px rgba(10, 5, 2, 0.45);
+  text-align: center;
+  animation: pop2 0.35s cubic-bezier(0.2, 1.5, 0.4, 1);
+}
+#tell .tell small {
+  display: block;
+  font: 800 10px var(--ui);
+  color: var(--dim);
+}
+#tell .tell b {
+  font: 900 18px/1.25 var(--ui);
+  color: var(--ink);
+}
+.newword.mod p {
+  margin: 6px 0 0;
+  max-width: 260px;
+  font: 800 12px/1.35 var(--ui);
+  color: var(--ink);
+}
+/* the closing card: what they asked for → what reached them */
+.tel {
+  margin-top: 8px;
+}
+.tel .tr {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+  background: #fff;
+  border-radius: 10px;
+  padding: 5px 9px;
+  margin: 4px 0;
+  font: 800 13px var(--ui);
+  text-align: left;
+}
+.tel .tr b {
+  font-weight: 900;
+}
+.tel .tr i {
+  font-style: normal;
+  color: var(--dim);
+}
+.tel .tr .got {
+  color: var(--red);
+}
+.tel .tr em {
+  font-style: normal;
+  color: var(--red);
+  font-weight: 900;
+}
+.tel .ok {
+  margin: 4px 0 0;
+  font: 900 13px var(--ui);
+  color: #2c8f72;
+}

@@ -117,12 +117,15 @@ export function rushGuest(W) {
     who = from[Math.floor(Math.random() * from.length)],
     words = N.words.slice().sort(() => Math.random() - 0.5),
     n = Math.random() < R.tops3 ? 3 : Math.random() < 0.5 ? 1 : 2,
-    hurry = Math.random() < (W.hurry !== undefined ? W.hurry : R.hurry);
+    hurry = Math.random() < (W.hurry !== undefined ? W.hurry : R.hurry),
+    mods = R.mods || [],
+    mod = mods.length && Math.random() < (R.mod || 0) ? mods[Math.floor(Math.random() * mods.length)] : null;
   C.next++;
   const q = {
     id: ++G.CID,
     who,
     o: N.words.filter(w => words.slice(0, n).includes(w)),
+    mod,
     teach: 0,
     nw: null,
     wait: 0,
